@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/auth/oidc/config`)
+      .then(res => res.json())
+      .then(data => setOidcEnabled(data.enabled))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +36,10 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOIDCLogin = () => {
+    window.location.href = `${API_URL}/api/auth/oidc/login`;
   };
 
   return (
@@ -70,11 +84,32 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 mb-4"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        {oidcEnabled && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-gray-800 text-gray-400">Or continue with</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOIDCLogin}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Sign in with SSO
+            </button>
+          </>
+        )}
 
         <p className="mt-4 text-center text-gray-400">
           Don't have an account?{' '}

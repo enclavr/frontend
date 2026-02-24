@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore, useRoomStore } from '@/lib/store';
+import { VoiceChat } from '@/components/VoiceChat';
 
 export default function RoomsPage() {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -81,20 +82,39 @@ export default function RoomsPage() {
         </div>
 
         {currentRoom && (
-          <div className="bg-green-900/30 border border-green-500 p-4 rounded-lg mb-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  Currently in: {currentRoom.name}
-                </h3>
-                <p className="text-gray-400">{currentRoom.user_count} users</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="bg-green-900/30 border border-green-500 p-4 rounded-lg mb-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      Currently in: {currentRoom.name}
+                    </h3>
+                    <p className="text-gray-400">{currentRoom.user_count} users</p>
+                  </div>
+                  <button
+                    onClick={handleLeaveRoom}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+                  >
+                    Leave Room
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={handleLeaveRoom}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-              >
-                Leave Room
-              </button>
+              
+              <div className="h-96">
+                <VoiceChat 
+                  roomId={currentRoom.id} 
+                  userId={user?.id || ''} 
+                  username={user?.username || ''} 
+                />
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Room Users</h3>
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <p className="text-gray-400 text-sm">Users in this room will appear here</p>
+              </div>
             </div>
           </div>
         )}
