@@ -16,6 +16,16 @@ export interface VoiceUser {
   isSpeaking: boolean;
 }
 
+interface ICEServer {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+interface ICEConfig {
+  ice_servers: ICEServer[];
+}
+
 interface UseWebRTCOptions {
   roomId: string;
   userId: string;
@@ -25,10 +35,30 @@ interface UseWebRTCOptions {
   onUserMuted?: (userId: string, isMuted: boolean) => void;
 }
 
-const ICE_SERVERS = [
+const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
+
+async function fetchICEServers(): Promise<RTCIceServer[]> {
+  try {
+    const apiUrl = typeof window !== 'undefined' 
+      ? `${window.location.protocol}//${window.location.host}/api`
+      : '/api';
+    const response = await fetch(`${apiUrl}/voice/ice`);
+    if (response.ok) {
+      const config: ICEConfig = await response.json();
+      return config.ice_servers.map((server) => ({
+        urls: server.urls,
+        username: server.username,
+        credential: server.credential,
+      }));
+    }
+  } catch (error) {
+    console.warn('Failed to fetch ICE config, using defaults:', error);
+  }
+  return DEFAULT_ICE_SERVERS;
+}
 
 export function useWebRTC({
   roomId,
@@ -43,13 +73,18 @@ export function useWebRTC({
   const [isMuted, setIsMuted] = useState(false);
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const [voiceUsers, setVoiceUsers] = useState<VoiceUser[]>([]);
+  const [iceServers, setIceServers] = useState<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
 
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
 
+  useEffect(() => {
+    fetchICEServers().then(setIceServers);
+  }, []);
+
   const createPeerConnection = useCallback(
     (peerId: string, initiator: boolean): RTCPeerConnection => {
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const pc = new RTCPeerConnection({ iceServers });
 
       pc.onicecandidate = (event) => {
         if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -88,7 +123,7 @@ export function useWebRTC({
 
       return pc;
     },
-    []
+    [iceServers]
   );
 
   const handleOffer = useCallback(
