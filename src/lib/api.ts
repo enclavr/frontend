@@ -385,6 +385,71 @@ class ApiClient {
   async getTopUsers(days: number = 30, limit: number = 10): Promise<import('@/types').TopUser[]> {
     return this.request<import('@/types').TopUser[]>(`/api/analytics/users?days=${days}&limit=${limit}`);
   }
+
+  async createBan(ban: import('@/types').CreateBanRequest): Promise<{ message: string; ban: import('@/types').Ban }> {
+    return this.request<{ message: string; ban: import('@/types').Ban }>('/api/ban', {
+      method: 'POST',
+      body: JSON.stringify(ban),
+    });
+  }
+
+  async getBans(roomId: string): Promise<{ bans: import('@/types').Ban[] }> {
+    return this.request<{ bans: import('@/types').Ban[] }>(`/api/ban/room?room_id=${roomId}`);
+  }
+
+  async getBan(banId: string): Promise<{ ban: import('@/types').Ban }> {
+    return this.request<{ ban: import('@/types').Ban }>(`/api/ban/?id=${banId}`);
+  }
+
+  async updateBan(banId: string, reason?: string, expiresAt?: string): Promise<{ message: string; ban: import('@/types').Ban }> {
+    return this.request<{ message: string; ban: import('@/types').Ban }>('/api/ban/update?id=' + banId, {
+      method: 'PUT',
+      body: JSON.stringify({ reason, expires_at: expiresAt }),
+    });
+  }
+
+  async deleteBan(banId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/ban/delete?id=${banId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async checkUserBan(userId: string, roomId: string): Promise<{ banned: boolean; ban?: import('@/types').Ban }> {
+    return this.request<{ banned: boolean; ban?: import('@/types').Ban }>(`/api/ban/check?user_id=${userId}&room_id=${roomId}`);
+  }
+
+  async createReport(report: import('@/types').CreateReportRequest): Promise<{ message: string; report: import('@/types').Report }> {
+    return this.request<{ message: string; report: import('@/types').Report }>('/api/report', {
+      method: 'POST',
+      body: JSON.stringify(report),
+    });
+  }
+
+  async getReports(status?: import('@/types').ReportStatus): Promise<{ reports: import('@/types').Report[] }> {
+    const query = status ? `?status=${status}` : '';
+    return this.request<{ reports: import('@/types').Report[] }>(`/api/reports${query}`);
+  }
+
+  async getReport(reportId: string): Promise<{ report: import('@/types').Report }> {
+    return this.request<{ report: import('@/types').Report }>(`/api/report/?id=${reportId}`);
+  }
+
+  async reviewReport(reportId: string, status: import('@/types').ReportStatus, reviewNotes?: string): Promise<{ message: string; report: import('@/types').Report }> {
+    return this.request<{ message: string; report: import('@/types').Report }>(`/api/report/review?id=${reportId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, review_notes: reviewNotes }),
+    });
+  }
+
+  async deleteReport(reportId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/report/delete?id=${reportId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getMyReports(): Promise<{ reports: import('@/types').Report[] }> {
+    return this.request<{ reports: import('@/types').Report[] }>('/api/reports/my');
+  }
 }
 
 export const api = new ApiClient();

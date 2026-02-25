@@ -5,6 +5,13 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  experimental: {
+    optimizePackageImports: ['react-markdown', 'zustand'],
+  },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  poweredByHeader: false,
 }
 
 module.exports = nextConfig

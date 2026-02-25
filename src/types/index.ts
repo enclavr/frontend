@@ -253,3 +253,88 @@ export interface TopUser {
   avatar_url: string;
   message_count: number;
 }
+
+export interface PushSubscription {
+  id: string;
+  endpoint: string;
+  is_active: boolean;
+  device_id: string;
+  device_os: string;
+  created_at: string;
+}
+
+export interface NotificationSettings {
+  enable_push: boolean;
+  enable_dm_notifications: boolean;
+  enable_mention_notifications: boolean;
+  enable_room_notifications: boolean;
+  enable_sound: boolean;
+  notify_on_mobile: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+}
+
+export interface Ban {
+  id: string;
+  user_id: string;
+  room_id: string;
+  banned_by: string;
+  reason: string;
+  expires_at?: string;
+  created_at: string;
+  user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  };
+}
+
+export interface CreateBanRequest {
+  user_id: string;
+  room_id: string;
+  reason: string;
+  expires_at?: string;
+}
+
+export type ReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'violence' | 'misinformation' | 'other';
+export type ReportStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  reported_id: string;
+  room_id: string;
+  message_id?: string;
+  reason: ReportReason;
+  description: string;
+  status: ReportStatus;
+  reviewed_by?: string;
+  review_notes?: string;
+  created_at: string;
+  updated_at: string;
+  reporter?: {
+    id: string;
+    username: string;
+    display_name: string;
+  };
+  reported?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  };
+  room?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateReportRequest {
+  reported_id: string;
+  room_id: string;
+  message_id?: string;
+  reason: ReportReason;
+  description: string;
+}
