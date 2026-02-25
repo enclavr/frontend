@@ -307,6 +307,84 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  async getEmojis(): Promise<import('@/types').ServerEmoji[]> {
+    return this.request<import('@/types').ServerEmoji[]>('/api/emoji');
+  }
+
+  async createEmoji(name: string, imageUrl: string): Promise<import('@/types').ServerEmoji> {
+    return this.request<import('@/types').ServerEmoji>('/api/emoji/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, image_url: imageUrl }),
+    });
+  }
+
+  async deleteEmoji(emojiId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>(`/api/emoji/delete?emoji_id=${emojiId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getStickers(): Promise<import('@/types').ServerSticker[]> {
+    return this.request<import('@/types').ServerSticker[]>('/api/sticker');
+  }
+
+  async createSticker(name: string, imageUrl: string): Promise<import('@/types').ServerSticker> {
+    return this.request<import('@/types').ServerSticker>('/api/sticker/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, image_url: imageUrl }),
+    });
+  }
+
+  async deleteSticker(stickerId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>(`/api/sticker/delete?sticker_id=${stickerId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getSounds(): Promise<import('@/types').SoundboardSound[]> {
+    return this.request<import('@/types').SoundboardSound[]>('/api/soundboard');
+  }
+
+  async createSound(name: string, audioUrl: string, hotkey?: string, volume?: number): Promise<import('@/types').SoundboardSound> {
+    return this.request<import('@/types').SoundboardSound>('/api/soundboard/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, audio_url: audioUrl, hotkey, volume }),
+    });
+  }
+
+  async playSound(soundId: string, roomId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>('/api/soundboard/play', {
+      method: 'POST',
+      body: JSON.stringify({ sound_id: soundId, room_id: roomId }),
+    });
+  }
+
+  async deleteSound(soundId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>(`/api/soundboard/delete?sound_id=${soundId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAnalyticsOverview(days: number = 30): Promise<import('@/types').AnalyticsOverview> {
+    return this.request<import('@/types').AnalyticsOverview>(`/api/analytics/overview?days=${days}`);
+  }
+
+  async getDailyActivity(days: number = 30): Promise<import('@/types').DailyActivity[]> {
+    return this.request<import('@/types').DailyActivity[]>(`/api/analytics/daily?days=${days}`);
+  }
+
+  async getChannelStats(days: number = 30): Promise<import('@/types').ChannelStats[]> {
+    return this.request<import('@/types').ChannelStats[]>(`/api/analytics/channels?days=${days}`);
+  }
+
+  async getHourlyActivity(days: number = 30): Promise<import('@/types').HourlyStats[]> {
+    return this.request<import('@/types').HourlyStats[]>(`/api/analytics/hourly?days=${days}`);
+  }
+
+  async getTopUsers(days: number = 30, limit: number = 10): Promise<import('@/types').TopUser[]> {
+    return this.request<import('@/types').TopUser[]>(`/api/analytics/users?days=${days}&limit=${limit}`);
+  }
 }
 
 export const api = new ApiClient();

@@ -192,3 +192,64 @@ export interface UploadedFile {
   is_deleted: boolean;
   created_at: string;
 }
+
+export interface ServerEmoji {
+  id: string;
+  name: string;
+  image_url: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ServerSticker {
+  id: string;
+  name: string;
+  image_url: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface SoundboardSound {
+  id: string;
+  name: string;
+  audio_url: string;
+  hotkey?: string;
+  volume: number;
+  created_by: string;
+  created_at: string;
+}
+
+export interface AnalyticsOverview {
+  total_messages: number;
+  total_users: number;
+  active_users: number;
+  new_users: number;
+  voice_minutes: number;
+  messages_per_day: number;
+}
+
+export interface DailyActivity {
+  date: string;
+  message_count: number;
+  user_count: number;
+}
+
+export interface ChannelStats {
+  room_id: string;
+  room_name: string;
+  message_count: number;
+  user_count: number;
+}
+
+export interface HourlyStats {
+  hour: number;
+  message_count: number;
+  user_count: number;
+}
+
+export interface TopUser {
+  user_id: string;
+  username: string;
+  avatar_url: string;
+  message_count: number;
+}
