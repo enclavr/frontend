@@ -75,3 +75,86 @@ test.describe('DM Page', () => {
     await expect(page).toHaveURL(/.*\/login/);
   });
 });
+
+test.describe('Login Form Validation', () => {
+  test('should have required attribute on username field', async ({ page }) => {
+    await page.goto('/login');
+    
+    const usernameInput = page.locator('input[type="text"]');
+    await expect(usernameInput).toHaveAttribute('required', '');
+  });
+
+  test('should have required attribute on password field', async ({ page }) => {
+    await page.goto('/login');
+    
+    const passwordInput = page.locator('input[type="password"]');
+    await expect(passwordInput).toHaveAttribute('required', '');
+  });
+});
+
+test.describe('Register Form Validation', () => {
+  test('should have required attributes on all fields', async ({ page }) => {
+    await page.goto('/register');
+    
+    const inputs = page.locator('input');
+    await expect(inputs).toHaveCount(3);
+    
+    for (let i = 0; i < 3; i++) {
+      await expect(inputs.nth(i)).toHaveAttribute('required', '');
+    }
+  });
+});
+
+test.describe('Accessibility', () => {
+  test('should support keyboard navigation on login page', async ({ page }) => {
+    await page.goto('/login');
+    
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('textbox').first()).toBeFocused();
+    
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('textbox').nth(1)).toBeFocused();
+    
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Login' })).toBeFocused();
+  });
+
+  test('should have proper heading hierarchy', async ({ page }) => {
+    await page.goto('/login');
+    
+    const h1 = await page.locator('h1').count();
+    expect(h1).toBeGreaterThan(0);
+  });
+});
+
+test.describe('Responsive Design', () => {
+  test('should render correctly on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/login');
+    
+    await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
+  });
+
+  test('should render correctly on tablet viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto('/login');
+    
+    await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
+  });
+});
+
+test.describe('Navigation', () => {
+  test('should display branding on login page', async ({ page }) => {
+    await page.goto('/login');
+    
+    await expect(page.getByRole('heading', { name: 'Enclavr', level: 1 })).toBeVisible();
+  });
+
+  test('should display branding on register page', async ({ page }) => {
+    await page.goto('/register');
+    
+    await expect(page.getByRole('heading', { name: 'Enclavr', level: 1 })).toBeVisible();
+  });
+});
