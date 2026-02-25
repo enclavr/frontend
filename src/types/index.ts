@@ -172,11 +172,12 @@ export interface WebhookLog {
 
 export interface SearchResult {
   id: string;
-  room_id: string;
-  room_name: string;
-  user_id: string;
-  username: string;
-  content: string;
+  room_id?: string;
+  room_name?: string;
+  user_id?: string;
+  username?: string;
+  display_name?: string;
+  content?: string;
   created_at: string;
 }
 
@@ -337,4 +338,24 @@ export interface CreateReportRequest {
   message_id?: string;
   reason: ReportReason;
   description: string;
+}
+
+export interface ServerSettings {
+  id: string;
+  server_name: string;
+  server_description: string;
+  allow_registration: boolean;
+  max_rooms_per_user: number;
+  max_members_per_room: number;
+  enable_voice_chat: boolean;
+  enable_direct_messages: boolean;
+  enable_file_uploads: boolean;
+  max_upload_size_mb: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TypingData {
+  user_id: string;
+  username?: string;
 }

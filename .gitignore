@@ -6,3 +6,6 @@ bun.lockb
 .env
 .env.local
 .DS_Store
+playwright-report/
+test-results/
+memory-bank/

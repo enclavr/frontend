@@ -169,7 +169,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showPinned, setShowPinned] = useState(false);
-  const [pinnedMessages, setPinnedMessages] = useState<any[]>([]);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [messageReactions, setMessageReactions] = useState<Record<string, ReactionWithCount[]>>({});
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);

@@ -65,7 +65,6 @@ export function VoiceChat({ roomId, userId, username, onConnectionChange }: Voic
     return () => {
       disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
   useEffect(() => {

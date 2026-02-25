@@ -6,6 +6,7 @@ import { useAuthStore, useRoomStore } from '@/lib/store';
 import { VoiceChat } from '@/components/VoiceChat';
 import { Chat } from '@/components/Chat';
 import { PresenceList } from '@/components/PresenceList';
+import type { ServerSettings, Invite, Category, RoomMember, Role, Webhook, WebhookLog, SearchResult } from '@/types';
 
 export default function RoomsPage() {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -18,24 +19,24 @@ export default function RoomsPage() {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showWebhookModal, setShowWebhookModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [webhooks, setWebhooks] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
   const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>([]);
-  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [selectedWebhookForLogs, setSelectedWebhookForLogs] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [invites, setInvites] = useState<any[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
   const [newInviteCode, setNewInviteCode] = useState('');
   const [inviteMaxUses, setInviteMaxUses] = useState(0);
   const [inviteExpiresIn, setInviteExpiresIn] = useState(0);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [serverSettings, setServerSettings] = useState<any>(null);
-  const [roomMembers, setRoomMembers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null);
+  const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [userRole, setUserRole] = useState<string>('member');
-  const [roles, setRoles] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDesc, setNewRoomDesc] = useState('');
   const [newRoomCategory, setNewRoomCategory] = useState('');
@@ -73,7 +74,7 @@ export default function RoomsPage() {
     }
   };
 
-  const updateServerSettings = async (settings: any) => {
+  const updateServerSettings = async (settings: Partial<ServerSettings>) => {
     const token = localStorage.getItem('token');
     try {
       const res = await fetch('/api/settings/update', {

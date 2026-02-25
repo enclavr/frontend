@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import { DMChat } from '@/components/DMChat';
 import { api } from '@/lib/api';
-import type { Conversation } from '@/types';
+import type { Conversation, SearchResult } from '@/types';
 
 export default function DMPage() {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -13,7 +13,7 @@ export default function DMPage() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [newDMUsername, setNewDMUsername] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
 

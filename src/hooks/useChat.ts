@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import type { Message, TypingUser } from '@/types';
+import type { Message, TypingUser, TypingData } from '@/types';
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
@@ -246,7 +246,7 @@ export function useChat({ roomId, userId, username, onNewMessage }: UseChatOptio
     setTypingUsers((prev) => prev.filter((u) => u.user_id !== userId));
   }, [roomId, userId]);
 
-  const handleTyping = useCallback((data: any) => {
+  const handleTyping = useCallback((data: TypingData) => {
     const typingUser: TypingUser = {
       user_id: data.user_id,
       username: data.username || 'Someone',
