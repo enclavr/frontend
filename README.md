@@ -2,12 +2,26 @@
 
 The default Next.js frontend for Enclavr voice chat platform.
 
+## IMPORTANT: Use Bun
+
+This project uses **bun** as the package manager. DO NOT use npm, yarn, or pnpm.
+
 ## Getting Started
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
+
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `bun install` | Install dependencies |
+| `bun run dev` | Start development server |
+| `bun run build` | Build for production |
+| `bun run lint` | Run ESLint |
+| `bun run typecheck` | Run TypeScript check |
 
 ## Environment Variables
 

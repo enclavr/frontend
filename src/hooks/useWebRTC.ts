@@ -82,6 +82,7 @@ export function useWebRTC({
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const toggleScreenShareRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     fetchICEServers().then(setIceServers);
@@ -204,7 +205,7 @@ export function useWebRTC({
           case 'voice-ice-candidate':
             await handleIceCandidate(data.userId, data.candidate);
             break;
-          case 'user-joined':
+          case 'user-joined': {
             const newPeer = createPeerConnection(data.userId, true);
             const offer = await newPeer.createOffer();
             await newPeer.setLocalDescription(offer);
@@ -245,7 +246,9 @@ export function useWebRTC({
               },
             ]);
             break;
-          case 'user-left':
+          }
+            break;
+          case 'user-left': {
             const peer = peers.get(data.userId);
             if (peer) {
               peer.connection.close();
@@ -255,6 +258,7 @@ export function useWebRTC({
             setVoiceUsers((prev) => prev.filter((u) => u.userId !== data.userId));
             onUserLeft?.(data.userId);
             break;
+          }
           case 'voice-mute':
           case 'voice-unmute':
             setVoiceUsers((prev) =>
@@ -425,7 +429,7 @@ export function useWebRTC({
 
         const screenTrack = stream.getVideoTracks()[0];
         screenTrack.onended = () => {
-          toggleScreenShare();
+          toggleScreenShareRef.current?.();
         };
 
         screenStreamRef.current = stream;
@@ -446,6 +450,10 @@ export function useWebRTC({
       }
     }
   }, [isScreenSharing, peers]);
+
+  useEffect(() => {
+    toggleScreenShareRef.current = toggleScreenShare;
+  }, [toggleScreenShare]);
 
   useEffect(() => {
     return () => {
