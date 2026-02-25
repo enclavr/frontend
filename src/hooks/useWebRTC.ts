@@ -14,6 +14,7 @@ export interface VoiceUser {
   username: string;
   isMuted: boolean;
   isSpeaking: boolean;
+  isScreenSharing: boolean;
 }
 
 interface ICEServer {
@@ -69,14 +70,18 @@ export function useWebRTC({
   onUserMuted,
 }: UseWebRTCOptions) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const [voiceUsers, setVoiceUsers] = useState<VoiceUser[]>([]);
   const [iceServers, setIceServers] = useState<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
 
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     fetchICEServers().then(setIceServers);
@@ -226,6 +231,7 @@ export function useWebRTC({
               username: data.username,
               isMuted: false,
               isSpeaking: false,
+              isScreenSharing: false,
             });
 
             setVoiceUsers((prev) => [
@@ -235,6 +241,7 @@ export function useWebRTC({
                 username: data.username,
                 isMuted: false,
                 isSpeaking: false,
+                isScreenSharing: false,
               },
             ]);
             break;
@@ -259,6 +266,24 @@ export function useWebRTC({
             );
             onUserMuted?.(data.userId, data.type === 'voice-mute');
             break;
+          case 'screen-share-started':
+            setVoiceUsers((prev) =>
+              prev.map((u) =>
+                u.userId === data.userId
+                  ? { ...u, isScreenSharing: true }
+                  : u
+              )
+            );
+            break;
+          case 'screen-share-stopped':
+            setVoiceUsers((prev) =>
+              prev.map((u) =>
+                u.userId === data.userId
+                  ? { ...u, isScreenSharing: false }
+                  : u
+              )
+            );
+            break;
         }
       };
 
@@ -274,7 +299,7 @@ export function useWebRTC({
 
       setVoiceUsers((prev) => [
         ...prev,
-        { userId, username, isMuted: false, isSpeaking: false },
+        { userId, username, isMuted: false, isSpeaking: false, isScreenSharing: false },
       ]);
     } catch (error) {
       console.error('Failed to initialize WebRTC:', error);
@@ -288,9 +313,16 @@ export function useWebRTC({
       setLocalStream(null);
     }
 
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+    }
+
     peers.forEach((peer) => peer.connection.close());
     setPeers(new Map());
     setVoiceUsers([]);
+    setIsScreenSharing(false);
 
     if (wsRef.current) {
       wsRef.current.close();
@@ -316,6 +348,107 @@ export function useWebRTC({
     }
   }, []);
 
+  const toggleVideo = useCallback(async () => {
+    const currentStream = localStreamRef.current;
+    if (currentStream) {
+      const videoTrack = currentStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+        
+        wsRef.current?.send(
+          JSON.stringify({
+            type: videoTrack.enabled ? 'video-enable' : 'video-disable',
+          })
+        );
+      }
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        const videoTrack = stream.getVideoTracks()[0];
+        videoTrack.enabled = true;
+        
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        setIsVideoEnabled(true);
+
+        peers.forEach((peer) => {
+          peer.connection.addTrack(videoTrack, stream);
+        });
+
+        wsRef.current?.send(
+          JSON.stringify({
+            type: 'video-enable',
+          })
+        );
+      } catch (error) {
+        console.error('Failed to enable video:', error);
+      }
+    }
+  }, [peers]);
+
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenSharing && screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+      setIsScreenSharing(false);
+
+      peers.forEach((peer) => {
+        const senders = peer.connection.getSenders();
+        const videoSender = senders.find(s => s.track?.kind === 'video');
+        if (videoSender) {
+          const currentStream = localStreamRef.current;
+          if (currentStream) {
+            const videoTrack = currentStream.getVideoTracks()[0];
+            if (videoTrack) {
+              videoSender.replaceTrack(videoTrack);
+            }
+          }
+        }
+      });
+
+      wsRef.current?.send(
+        JSON.stringify({
+          type: 'screen-share-stopped',
+        })
+      );
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+          },
+          audio: false,
+        });
+
+        const screenTrack = stream.getVideoTracks()[0];
+        screenTrack.onended = () => {
+          toggleScreenShare();
+        };
+
+        screenStreamRef.current = stream;
+        setScreenStream(stream);
+        setIsScreenSharing(true);
+
+        peers.forEach((peer) => {
+          peer.connection.addTrack(screenTrack, stream);
+        });
+
+        wsRef.current?.send(
+          JSON.stringify({
+            type: 'screen-share-started',
+          })
+        );
+      } catch (error) {
+        console.error('Failed to start screen sharing:', error);
+      }
+    }
+  }, [isScreenSharing, peers]);
+
   useEffect(() => {
     return () => {
       disconnect();
@@ -324,12 +457,17 @@ export function useWebRTC({
 
   return {
     localStream,
+    screenStream,
     isConnected,
     isMuted,
+    isVideoEnabled,
+    isScreenSharing,
     peers,
     voiceUsers,
     connect,
     disconnect,
     toggleMute,
+    toggleVideo,
+    toggleScreenShare,
   };
 }

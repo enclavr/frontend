@@ -7,23 +7,41 @@ interface VoiceChatProps {
   roomId: string;
   userId: string;
   username: string;
+  onConnectionChange?: (connected: boolean) => void;
 }
 
-export function VoiceChat({ roomId, userId, username }: VoiceChatProps) {
+export function VoiceChat({ roomId, userId, username, onConnectionChange }: VoiceChatProps) {
   const {
     localStream,
+    screenStream,
     isConnected,
     isMuted,
+    isVideoEnabled,
+    isScreenSharing,
     peers,
     voiceUsers,
     connect,
     disconnect,
     toggleMute,
+    toggleVideo,
+    toggleScreenShare,
   } = useWebRTC({
     roomId,
     userId,
     username,
   });
+
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (localVideoRef.current && (localStream || screenStream)) {
+      localVideoRef.current.srcObject = screenStream || localStream;
+    }
+  }, [localStream, screenStream, isVideoEnabled, isScreenSharing]);
+
+  useEffect(() => {
+    onConnectionChange?.(isConnected);
+  }, [isConnected, onConnectionChange]);
 
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
@@ -33,6 +51,7 @@ export function VoiceChat({ roomId, userId, username }: VoiceChatProps) {
     return () => {
       disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
   useEffect(() => {
@@ -82,6 +101,39 @@ export function VoiceChat({ roomId, userId, username }: VoiceChatProps) {
       <div className="p-4 bg-gray-700 border-t border-gray-600">
         <div className="flex items-center justify-center gap-4">
           <button
+            onClick={toggleScreenShare}
+            className={`p-3 rounded-full transition-colors ${
+              isScreenSharing
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-600 hover:bg-gray-500 text-white'
+            }`}
+            title={isScreenSharing ? 'Stop screen share' : 'Share screen'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </button>
+          <button
+            onClick={toggleVideo}
+            className={`p-3 rounded-full transition-colors ${
+              isVideoEnabled
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-600 hover:bg-gray-500 text-white'
+            }`}
+            title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
+          >
+            {isVideoEnabled ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+              </svg>
+            )}
+          </button>
+          <button
             onClick={toggleMute}
             className={`p-3 rounded-full transition-colors ${
               isMuted
@@ -112,6 +164,21 @@ export function VoiceChat({ roomId, userId, username }: VoiceChatProps) {
           </button>
         </div>
       </div>
+
+      {(isVideoEnabled || isScreenSharing) && localStream && (
+        <div className="p-2 bg-gray-800 border-t border-gray-700">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-32 h-24 object-cover rounded-lg mx-auto"
+          />
+          {isScreenSharing && (
+            <p className="text-center text-xs text-green-400 mt-1">Sharing screen</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,6 +198,13 @@ function VoiceUserItem({ user, isCurrentUser }: { user: VoiceUser; isCurrentUser
             </svg>
           </div>
         )}
+        {user.isScreenSharing && (
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+        )}
       </div>
       <div className="flex-1">
         <p className="text-white text-sm font-medium">
@@ -138,7 +212,7 @@ function VoiceUserItem({ user, isCurrentUser }: { user: VoiceUser; isCurrentUser
           {isCurrentUser && <span className="text-gray-400 ml-1">(you)</span>}
         </p>
         <p className="text-gray-400 text-xs">
-          {user.isMuted ? 'Muted' : 'Speaking'}
+          {user.isScreenSharing ? 'Sharing screen' : user.isMuted ? 'Muted' : 'Speaking'}
         </p>
       </div>
     </div>
