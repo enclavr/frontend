@@ -264,8 +264,48 @@ class ApiClient {
     });
   }
 
+  async getWebhookLogs(webhookId: string, limit: number = 50) {
+    return this.request<import('@/types').WebhookLog[]>(`/api/webhook/logs/${webhookId}?limit=${limit}`);
+  }
+
   async searchMessages(query: string, limit: number = 50) {
     return this.request<import('@/types').SearchResult[]>(`/api/messages/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  async uploadFile(roomId: string, file: File): Promise<{
+    id: string;
+    file_name: string;
+    file_size: number;
+    content_type: string;
+    url: string;
+  }> {
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('room_id', roomId);
+
+    const response = await fetch(`${API_URL}/api/files`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async getRoomFiles(roomId: string): Promise<import('@/types').UploadedFile[]> {
+    return this.request<import('@/types').UploadedFile[]>(`/api/files?room_id=${roomId}`);
+  }
+
+  async deleteFile(fileId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>(`/api/files/delete?file_id=${fileId}`, {
+      method: 'DELETE',
+    });
   }
 }
 

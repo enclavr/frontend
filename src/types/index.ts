@@ -158,6 +158,18 @@ export interface WebhookCreate {
   events: string[];
 }
 
+export interface WebhookLog {
+  id: string;
+  webhook_id: string;
+  event: string;
+  payload: string;
+  status_code: number;
+  success: boolean;
+  error_message: string;
+  response_body: string;
+  created_at: string;
+}
+
 export interface SearchResult {
   id: string;
   room_id: string;
@@ -165,5 +177,18 @@ export interface SearchResult {
   user_id: string;
   username: string;
   content: string;
+  created_at: string;
+}
+
+export interface UploadedFile {
+  id: string;
+  user_id: string;
+  room_id: string;
+  message_id?: string;
+  file_name: string;
+  file_size: number;
+  content_type: string;
+  url: string;
+  is_deleted: boolean;
   created_at: string;
 }

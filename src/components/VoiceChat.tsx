@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWebRTC, VoiceUser } from '@/hooks/useWebRTC';
+import { useMediaRecorder, RecorderControls } from './MediaRecorder';
 
 interface VoiceChatProps {
   roomId: string;
@@ -30,6 +31,19 @@ export function VoiceChat({ roomId, userId, username, onConnectionChange }: Voic
     userId,
     username,
   });
+
+  const {
+    status: recordingStatus,
+    duration: recordingDuration,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    downloadRecording,
+    reset: resetRecording,
+  } = useMediaRecorder();
+
+  const [showRecorder, setShowRecorder] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -114,6 +128,20 @@ export function VoiceChat({ roomId, userId, username, onConnectionChange }: Voic
             </svg>
           </button>
           <button
+            onClick={() => setShowRecorder(!showRecorder)}
+            className={`p-3 rounded-full transition-colors ${
+              showRecorder
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-gray-600 hover:bg-gray-500 text-white'
+            }`}
+            title={showRecorder ? 'Hide recorder' : 'Show recorder'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              <circle cx="12" cy="10" r="3" fill="currentColor" />
+            </svg>
+          </button>
+          <button
             onClick={toggleVideo}
             className={`p-3 rounded-full transition-colors ${
               isVideoEnabled
@@ -177,6 +205,22 @@ export function VoiceChat({ roomId, userId, username, onConnectionChange }: Voic
           {isScreenSharing && (
             <p className="text-center text-xs text-green-400 mt-1">Sharing screen</p>
           )}
+        </div>
+      )}
+
+      {showRecorder && (
+        <div className="p-2 bg-gray-800 border-t border-gray-700">
+          <RecorderControls
+            status={recordingStatus}
+            duration={recordingDuration}
+            onStartAudio={() => startRecording('audio')}
+            onStartVideo={() => startRecording('video')}
+            onStop={stopRecording}
+            onPause={pauseRecording}
+            onResume={resumeRecording}
+            onDownload={downloadRecording}
+            onReset={resetRecording}
+          />
         </div>
       )}
     </div>

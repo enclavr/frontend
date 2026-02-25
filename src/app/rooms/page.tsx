@@ -21,6 +21,8 @@ export default function RoomsPage() {
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
   const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>([]);
+  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [selectedWebhookForLogs, setSelectedWebhookForLogs] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -262,6 +264,26 @@ export default function RoomsPage() {
     } catch (err) {
       console.error('Failed to toggle webhook:', err);
     }
+  };
+
+  const fetchWebhookLogs = async (webhookId: string) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`/api/webhook/logs/${webhookId}?limit=20`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWebhookLogs(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch webhook logs:', err);
+    }
+  };
+
+  const handleViewWebhookLogs = (webhookId: string) => {
+    setSelectedWebhookForLogs(webhookId);
+    fetchWebhookLogs(webhookId);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -786,545 +808,44 @@ export default function RoomsPage() {
         </div>
       )}
 
-      {showCategoryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold text-white mb-4">Manage Categories</h3>
-            <form onSubmit={handleCreateCategory}>
-              <div className="mb-4">
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  New Category Name
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-gray-700 text-white rounded"
-                    placeholder="Category name"
-                  />
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            </form>
-            {categories.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-gray-400 text-sm">Existing Categories:</p>
-                {categories.map((cat) => (
-                  <div key={cat.id} className="flex items-center justify-between bg-gray-700 px-3 py-2 rounded">
-                    {editingCategory?.id === cat.id ? (
-                      <form onSubmit={handleUpdateCategory} className="flex-1 flex gap-2">
-                        <input
-                          type="text"
-                          value={editingCategory.name}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                          className="flex-1 px-2 py-1 bg-gray-600 text-white rounded text-sm"
-                        />
-                        <button type="submit" className="text-green-400 hover:text-green-300 text-sm">
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingCategory(null)}
-                          className="text-gray-400 hover:text-gray-300 text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </form>
-                    ) : (
-                      <>
-                        <span className="text-white text-sm">{cat.name}</span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setEditingCategory(cat)}
-                            className="text-gray-400 hover:text-blue-300 text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCategory(cat.id)}
-                            className="text-gray-400 hover:text-red-300 text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setShowCategoryModal(false);
-                setEditingCategory(null);
-              }}
-              className="mt-4 w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showInviteModal && currentRoom && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-[480px] max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">Invite to {currentRoom.name}</h3>
-            
-            <form onSubmit={handleCreateInvite} className="mb-6">
-              <p className="text-gray-400 text-sm mb-3">Create a new invite link</p>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="number"
-                  value={inviteMaxUses || ''}
-                  onChange={(e) => setInviteMaxUses(parseInt(e.target.value) || 0)}
-                  className="w-24 px-3 py-2 bg-gray-700 text-white rounded text-sm"
-                  placeholder="Max uses (0=unlimited)"
-                  min="0"
-                />
-                <input
-                  type="number"
-                  value={inviteExpiresIn || ''}
-                  onChange={(e) => setInviteExpiresIn(parseInt(e.target.value) || 0)}
-                  className="w-24 px-3 py-2 bg-gray-700 text-white rounded text-sm"
-                  placeholder="Expires (hours)"
-                  min="0"
-                />
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm"
-                >
-                  Generate Invite
-                </button>
-              </div>
-            </form>
-
-            {newInviteCode && (
-              <div className="mb-6 p-3 bg-blue-900/50 border border-blue-500 rounded">
-                <p className="text-gray-300 text-sm mb-2">New invite code:</p>
-                <div className="flex gap-2">
-                  <code className="flex-1 bg-gray-900 px-3 py-2 rounded text-white font-mono text-sm">
-                    {newInviteCode}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(newInviteCode)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-gray-400 text-sm mb-3">Active invites:</p>
-              {invites.length === 0 ? (
-                <p className="text-gray-500 text-sm">No active invites</p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {invites.map((invite) => (
-                    <div key={invite.id} className="bg-gray-700 p-3 rounded">
-                      <div className="flex items-center justify-between mb-1">
-                        <code className="text-white font-mono text-sm">{invite.code}</code>
-                        {invite.is_revoked ? (
-                          <span className="text-red-400 text-xs">Revoked</span>
-                        ) : new Date(invite.expires_at) < new Date() ? (
-                          <span className="text-yellow-400 text-xs">Expired</span>
-                        ) : (
-                          <button
-                            onClick={() => handleRevokeInvite(invite.id)}
-                            className="text-red-400 hover:text-red-300 text-xs"
-                          >
-                            Revoke
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex gap-4 text-xs text-gray-400">
-                        <span>Uses: {invite.uses}{invite.max_uses > 0 ? `/${invite.max_uses}` : ''}</span>
-                        <span>Expires: {new Date(invite.expires_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                setShowInviteModal(false);
-                setNewInviteCode('');
-              }}
-              className="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showJoinByCodeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold text-white mb-4">Join via Invite Code</h3>
-            <form onSubmit={handleJoinByCode}>
-              <div className="mb-4">
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Invite Code
-                </label>
-                <input
-                  type="text"
-                  value={inviteCodeInput}
-                  onChange={(e) => setInviteCodeInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                  placeholder="Enter invite code"
-                  required
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowJoinByCodeModal(false);
-                    setInviteCodeInput('');
-                  }}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded"
-                >
-                  Join
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showSettingsModal && serverSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-[500px] max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">Server Settings</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Server Name
-                </label>
-                <input
-                  type="text"
-                  defaultValue={serverSettings.server_name}
-                  id="serverName"
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Server Description
-                </label>
-                <textarea
-                  defaultValue={serverSettings.server_description}
-                  id="serverDesc"
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                  rows={2}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="allowReg"
-                  defaultChecked={serverSettings.allow_registration}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="allowReg" className="text-gray-300">
-                  Allow User Registration
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="enableVoice"
-                  defaultChecked={serverSettings.enable_voice_chat}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="enableVoice" className="text-gray-300">
-                  Enable Voice Chat
-                </label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="enableDMs"
-                  defaultChecked={serverSettings.enable_direct_messages}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="enableDMs" className="text-gray-300">
-                  Enable Direct Messages
-                </label>
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Max Rooms Per User
-                </label>
-                <input
-                  type="number"
-                  defaultValue={serverSettings.max_rooms_per_user}
-                  id="maxRooms"
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                  min={1}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-bold mb-2">
-                  Max Members Per Room
-                </label>
-                <input
-                  type="number"
-                  defaultValue={serverSettings.max_members_per_room}
-                  id="maxMembers"
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded"
-                  min={2}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    const settings = {
-                      server_name: (document.getElementById('serverName') as HTMLInputElement).value,
-                      server_description: (document.getElementById('serverDesc') as HTMLTextAreaElement).value,
-                      allow_registration: (document.getElementById('allowReg') as HTMLInputElement).checked,
-                      enable_voice_chat: (document.getElementById('enableVoice') as HTMLInputElement).checked,
-                      enable_direct_messages: (document.getElementById('enableDMs') as HTMLInputElement).checked,
-                      max_rooms_per_user: parseInt((document.getElementById('maxRooms') as HTMLInputElement).value),
-                      max_members_per_room: parseInt((document.getElementById('maxMembers') as HTMLInputElement).value),
-                    };
-                    updateServerSettings(settings);
-                    setShowSettingsModal(false);
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showMembersModal && currentRoom && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-[500px] max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">Manage Members - {currentRoom.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">Your role: <span className="text-blue-400 font-semibold">{userRole}</span></p>
-            <div className="space-y-3">
-              {roomMembers.map((member) => (
-                <div key={member.user_id} className="bg-gray-700 p-3 rounded flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-semibold">
-                      {member.username.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{member.username}</p>
-                      <p className="text-gray-400 text-sm">Joined: {new Date(member.joined_at).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={member.role}
-                      onChange={(e) => handleUpdateMemberRole(member.user_id, e.target.value)}
-                      className="bg-gray-600 text-white text-sm px-2 py-1 rounded"
-                      disabled={!['owner', 'admin', 'moderator'].includes(userRole) || member.user_id === user?.id}
-                    >
-                      {roles.map((role) => (
-                        <option key={role.name} value={role.name}>
-                          {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                    {['owner', 'admin', 'moderator'].includes(userRole) && member.user_id !== user?.id && (
-                      <button
-                        onClick={() => handleKickUser(member.user_id)}
-                        className="text-red-400 hover:text-red-300 text-sm px-2"
-                      >
-                        Kick
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowMembersModal(false)}
-              className="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showWebhookModal && currentRoom && (userRole === 'owner' || userRole === 'admin') ? (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-[500px] max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">Webhooks - {currentRoom.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">Webhooks allow you to receive notifications about events in this room.</p>
-            
-            <form onSubmit={handleCreateWebhook} className="mb-6">
-              <p className="text-gray-400 text-sm mb-3">Create a new webhook</p>
-              <div className="mb-3">
-                <input
-                  type="url"
-                  value={newWebhookUrl}
-                  onChange={(e) => setNewWebhookUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm"
-                  placeholder="Webhook URL (https://...)"
-                  required
-                />
-              </div>
-              <div className="mb-3">
-                <label className="block text-gray-400 text-sm mb-2">Events:</label>
-                <div className="flex flex-wrap gap-2">
-                  {['message_created', 'message_updated', 'message_deleted', 'user_joined', 'user_left', 'voice_started', 'voice_stopped'].map((event) => (
-                    <label key={event} className="flex items-center gap-1 text-gray-300 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={newWebhookEvents.includes(event)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewWebhookEvents([...newWebhookEvents, event]);
-                          } else {
-                            setNewWebhookEvents(newWebhookEvents.filter((ev) => ev !== event));
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      {event}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={!newWebhookUrl || newWebhookEvents.length === 0}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Webhook
-              </button>
-            </form>
-
-            <div>
-              <p className="text-gray-400 text-sm mb-3">Active webhooks:</p>
-              {webhooks.length === 0 ? (
-                <p className="text-gray-500 text-sm">No webhooks configured</p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {webhooks.map((webhook) => (
-                    <div key={webhook.id} className="bg-gray-700 p-3 rounded">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-white font-mono text-sm truncate max-w-[200px]">{webhook.url}</span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleToggleWebhook(webhook.id)}
-                            className={`text-xs px-2 py-1 rounded ${webhook.is_active ? 'bg-green-600' : 'bg-gray-600'}`}
-                          >
-                            {webhook.is_active ? 'Active' : 'Inactive'}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteWebhook(webhook.id)}
-                            className="text-red-400 hover:text-red-300 text-xs"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {webhook.events.map((ev: string) => (
-                          <span key={ev} className="text-xs bg-gray-600 text-gray-300 px-2 py-0.5 rounded">
-                            {ev}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                setShowWebhookModal(false);
-                setWebhooks([]);
-              }}
-              className="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {showSearchModal && (
+      {selectedWebhookForLogs && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-gray-800 p-6 rounded-lg w-[600px] max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-white mb-4">Search Messages</h3>
-            <form onSubmit={handleSearch} className="mb-6">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-gray-700 text-white rounded"
-                  placeholder="Search messages..."
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={isSearching}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
-                >
-                  {isSearching ? 'Searching...' : 'Search'}
-                </button>
-              </div>
-            </form>
-
-            <div>
-              <p className="text-gray-400 text-sm mb-3">Results:</p>
-              {searchResults.length === 0 ? (
-                <p className="text-gray-500 text-sm">No results found</p>
+            <h3 className="text-xl font-bold text-white mb-4">Webhook Logs</h3>
+            <p className="text-gray-400 text-sm mb-4">Recent delivery attempts for this webhook.</p>
+            
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {webhookLogs.length === 0 ? (
+                <p className="text-gray-500 text-sm">No logs available yet. Logs are created when webhook events are triggered.</p>
               ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {searchResults.map((result) => (
-                    <div key={result.id} className="bg-gray-700 p-3 rounded">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-blue-400 font-medium text-sm">{result.username}</span>
-                        <span className="text-gray-500 text-xs">{new Date(result.created_at).toLocaleString()}</span>
+                webhookLogs.map((log) => (
+                  <div key={log.id} className={`p-3 rounded border ${log.success ? 'border-green-600 bg-green-900/20' : 'border-red-600 bg-red-900/20'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${log.success ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <span className="text-white font-medium text-sm">{log.event}</span>
                       </div>
-                      <p className="text-white text-sm">{result.content}</p>
-                      <p className="text-gray-500 text-xs mt-1">in #{result.room_name}</p>
+                      <span className="text-gray-400 text-xs">{new Date(log.created_at).toLocaleString()}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-gray-400 text-xs mb-2">
+                      Status: {log.status_code > 0 ? log.status_code : 'Failed'}
+                      {log.error_message && <span className="text-red-400 ml-2">{log.error_message}</span>}
+                    </div>
+                    {log.response_body && (
+                      <details className="text-xs">
+                        <summary className="text-gray-400 cursor-pointer hover:text-gray-300">Response Body</summary>
+                        <pre className="mt-2 p-2 bg-gray-900 rounded text-gray-300 overflow-x-auto whitespace-pre-wrap">{log.response_body}</pre>
+                      </details>
+                    )}
+                  </div>
+                ))
               )}
             </div>
 
             <button
               onClick={() => {
-                setShowSearchModal(false);
-                setSearchQuery('');
-                setSearchResults([]);
+                setSelectedWebhookForLogs(null);
+                setWebhookLogs([]);
               }}
               className="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded"
             >
