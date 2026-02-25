@@ -9,3 +9,4 @@ bun.lockb
 playwright-report/
 test-results/
 memory-bank/
+*.tsbuildinfo

@@ -22,6 +22,9 @@ bun run dev
 | `bun run build` | Build for production |
 | `bun run lint` | Run ESLint |
 | `bun run typecheck` | Run TypeScript check |
+| `bun run test` | Run Vitest unit tests (watch mode) |
+| `bun run test:run` | Run Vitest unit tests (single run) |
+| `bun run test:e2e` | Run Playwright E2E tests |
 
 ## Environment Variables
 
@@ -33,7 +36,17 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 
 ## Features
 
-- User authentication
-- Room management
-- Voice chat interface
+- User authentication (login/register)
+- Room management with categories
+- Real-time voice chat with WebRTC
+- Video call support
+- Screen sharing
+- Text chat with markdown support
+- Direct messaging (DM)
+- Presence indicators
+- Message reactions
+- Pinned messages
+- Push notifications
+- Server invites
+- Admin settings
 - Responsive design
