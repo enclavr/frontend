@@ -368,4 +368,214 @@ describe('useRoomStore', () => {
       expect(result.current.currentRoom).toBe(null);
     });
   });
+
+  describe('Room Store Edge Cases', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      useRoomStore.setState({
+        rooms: [],
+        currentRoom: null,
+      });
+    });
+
+    it('should handle joinRoom failure gracefully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.joinRoom).mockRejectedValueOnce(new Error('Room is full'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.joinRoom('room-full');
+        })
+      ).rejects.toThrow('Room is full');
+    });
+
+    it('should handle fetchRooms failure gracefully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.getRooms).mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.fetchRooms();
+        })
+      ).rejects.toThrow('Network error');
+    });
+
+    it('should handle createRoom failure gracefully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.createRoom).mockRejectedValueOnce(new Error('Name taken'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.createRoom('Existing Room');
+        })
+      ).rejects.toThrow('Name taken');
+    });
+
+    it('should handle leaveRoom failure gracefully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.leaveRoom).mockRejectedValueOnce(new Error('Not in room'));
+
+      useRoomStore.setState({
+        rooms: [{ id: 'room-1', name: 'Room 1', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 5 }],
+        currentRoom: { id: 'room-1', name: 'Room 1', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 5 },
+      });
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.leaveRoom('room-1');
+        })
+      ).rejects.toThrow('Not in room');
+    });
+
+    it('should preserve existing rooms when creating new room', async () => {
+      useRoomStore.setState({
+        rooms: [{ id: 'existing', name: 'Existing Room', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 5 }],
+        currentRoom: null,
+      });
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await act(async () => {
+        await result.current.createRoom('New Room');
+      });
+
+      expect(result.current.rooms.length).toBe(2);
+      expect(result.current.rooms.find(r => r.name === 'Existing Room')).toBeDefined();
+    });
+
+    it('should handle concurrent room operations', async () => {
+      const { api } = await import('@/lib/api');
+      
+      vi.mocked(api.createRoom)
+        .mockResolvedValueOnce({ id: 'room-1', name: 'Room 1', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 1 })
+        .mockResolvedValueOnce({ id: 'room-2', name: 'Room 2', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T11:00:00Z', user_count: 1 });
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await act(async () => {
+        await Promise.all([
+          result.current.createRoom('Room 1'),
+          result.current.createRoom('Room 2'),
+        ]);
+      });
+
+      expect(result.current.rooms.length).toBe(2);
+    });
+
+    it('should handle room with maximum user count', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.getRoom).mockResolvedValueOnce({
+        id: 'room-1',
+        name: 'Full Room',
+        description: '',
+        is_private: false,
+        max_users: 50,
+        created_by: 'user-1',
+        created_at: '2026-02-26T10:00:00Z',
+        user_count: 50,
+      });
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await act(async () => {
+        await result.current.joinRoom('room-1');
+      });
+
+      expect(result.current.currentRoom?.user_count).toBe(50);
+    });
+  });
+
+  describe('Auth Store Edge Cases', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      localStorage.clear();
+      useAuthStore.setState({
+        user: null,
+        token: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+    });
+
+    it('should handle login with network error', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.login).mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.login('user', 'pass');
+        })
+      ).rejects.toThrow('Network error');
+      
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should handle register with network error', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.register).mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.register('user', 'email@test.com', 'pass');
+        })
+      ).rejects.toThrow('Network error');
+      
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should persist state correctly', () => {
+      useAuthStore.setState({
+        user: { id: '1', username: 'test', email: 'test@test.com', display_name: 'Test', avatar_url: '', is_admin: false },
+        token: 'test-token',
+        refreshToken: 'refresh-token',
+        isAuthenticated: true,
+      });
+
+      const { result } = renderHook(() => useAuthStore());
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.token).toBe('test-token');
+    });
+
+    it('should handle setUser without authentication', () => {
+      const { result } = renderHook(() => useAuthStore());
+      
+      const newUser = { id: '2', username: 'newuser', email: 'new@test.com', display_name: 'New User', avatar_url: '', is_admin: false };
+      
+      act(() => {
+        result.current.setUser(newUser);
+      });
+
+      expect(result.current.user).toEqual(newUser);
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should clear tokens on logout but preserve user state temporarily', async () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      await act(async () => {
+        await result.current.login('testuser', 'password');
+      });
+
+      expect(result.current.token).toBe('test-token');
+
+      act(() => {
+        result.current.logout();
+      });
+
+      expect(result.current.token).toBe(null);
+      expect(result.current.refreshToken).toBe(null);
+    });
+  });
 });

@@ -215,6 +215,182 @@ describe('API Edge Cases', () => {
   });
 });
 
+describe('API Network Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle network error gracefully', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    await expect(api.getRooms()).rejects.toThrow('Network error');
+  });
+
+  it('should handle timeout errors', async () => {
+    const abortError = new Error('Abort error');
+    abortError.name = 'AbortError';
+    global.fetch = vi.fn().mockRejectedValue(abortError);
+
+    await expect(api.getRooms()).rejects.toThrow();
+  });
+
+  it('should handle non-OK status codes correctly', async () => {
+    const statusCodes = [400, 401, 403, 404, 429, 500, 502, 503];
+    
+    for (const status of statusCodes) {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => ({ message: `Error ${status}` }),
+      });
+
+      await expect(api.getRooms()).rejects.toThrow(`Error ${status}`);
+    }
+  });
+
+  it('should handle empty response body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => null,
+    });
+
+    const result = await api.getRooms();
+    expect(result).toBeNull();
+  });
+});
+
+describe('API Data Validation Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle malformed JSON response', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => { throw new SyntaxError('Unexpected token'); },
+    });
+
+    await expect(api.login('user', 'pass')).rejects.toThrow();
+  });
+
+  it('should handle response with extra fields', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ 
+        user: { id: '1', username: 'test', email: 'test@test.com', display_name: 'Test', avatar_url: '', is_admin: false },
+        access_token: 'token',
+        refresh_token: 'refresh',
+        expires_in: 3600,
+        extra_field: 'should be ignored',
+      }),
+    });
+
+    const result = await api.login('user', 'pass');
+    expect(result.access_token).toBe('token');
+  });
+
+  it('should handle response with missing optional fields', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ 
+        user: { id: '1', username: 'test', email: 'test@test.com', display_name: 'Test', avatar_url: '', is_admin: false },
+        access_token: 'token',
+      }),
+    });
+
+    const result = await api.login('user', 'pass');
+    expect(result.refresh_token).toBeUndefined();
+    expect(result.expires_in).toBeUndefined();
+  });
+});
+
+describe('API Request Body Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle unicode characters in request body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: {}, access_token: '', refresh_token: '' }),
+    });
+
+    await api.register('用户', 'тест@example.com', 'пароль');
+    
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining('用户'),
+      })
+    );
+  });
+
+  it('should handle empty strings in optional fields', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: {}, access_token: '', refresh_token: '' }),
+    });
+
+    await api.createRoom({ name: 'Room', description: '' });
+    
+    expect(global.fetch).toHaveBeenCalled();
+  });
+
+  it('should handle special characters in passwords', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: {}, access_token: '', refresh_token: '' }),
+    });
+
+    const specialPassword = 'p@ssw0rd!#$%^&*()_+-=[]{}|;:,.<>?';
+    await api.login('user', specialPassword);
+    
+    expect(global.fetch).toHaveBeenCalled();
+  });
+});
+
+describe('API URL Encoding Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should encode emoji in search query', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    await api.searchMessages('hello 👋', 10);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('hello%20%F0%9F%91%8B'),
+      expect.any(Object)
+    );
+  });
+
+  it('should handle room ID with special characters', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    await api.getRoom('room-with-dash_underscore.dot');
+    
+    expect(global.fetch).toHaveBeenCalled();
+  });
+
+  it('should handle unicode room names', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    await api.searchMessages('日本語', 10);
+    
+    expect(global.fetch).toHaveBeenCalled();
+  });
+});
+
 describe('API Content Types', () => {
   beforeEach(() => {
     vi.clearAllMocks();
