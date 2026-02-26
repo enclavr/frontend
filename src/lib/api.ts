@@ -8,6 +8,7 @@ import type {
   Category,
   ICEConfig,
   Message,
+  MessageType,
   Presence,
   Conversation,
   DirectMessage,
@@ -159,7 +160,7 @@ class ApiClient {
     return this.request<ICEConfig>('/api/voice/ice');
   }
 
-  async sendMessage(roomId: string, content: string, type: string = 'text') {
+  async sendMessage(roomId: string, content: string, type: MessageType = 'text') {
     return this.request<Message>('/api/messages', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, content, type }),
@@ -183,7 +184,7 @@ class ApiClient {
     });
   }
 
-  async updatePresence(status: string, roomId?: string) {
+  async updatePresence(status: Presence['status'], roomId?: string) {
     return this.request<Presence>('/api/presence', {
       method: 'POST',
       body: JSON.stringify({ status, room_id: roomId }),

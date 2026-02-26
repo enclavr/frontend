@@ -53,12 +53,14 @@ export interface ICEServer {
   credential?: string;
 }
 
+export type MessageType = 'text' | 'user' | 'system' | 'image' | 'file';
+
 export interface Message {
   id: string;
   room_id: string;
   user_id: string;
   username: string;
-  type: string;
+  type: MessageType;
   content: string;
   is_edited: boolean;
   is_deleted: boolean;
