@@ -6,6 +6,8 @@ import type { Message, TypingUser, TypingData } from '@/types';
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
+export type { ConnectionState };
+
 interface UseChatOptions {
   roomId: string;
   userId: string;

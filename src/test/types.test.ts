@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData } from '@/types';
+import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData, NotificationSettings, PushSubscription, ServerSettings } from '@/types';
 
 describe('Type Definitions', () => {
   describe('User type', () => {
@@ -1187,6 +1187,289 @@ describe('Type Definitions', () => {
       };
       
       expect(typing.username).toBeUndefined();
+    });
+  });
+
+  describe('NotificationSettings type', () => {
+    it('should have all required fields', () => {
+      const settings: NotificationSettings = {
+        enable_push: true,
+        enable_dm_notifications: true,
+        enable_mention_notifications: true,
+        enable_room_notifications: true,
+        enable_sound: true,
+        notify_on_mobile: true,
+        quiet_hours_enabled: false,
+        quiet_hours_start: '22:00',
+        quiet_hours_end: '08:00',
+      };
+      
+      expect(settings.enable_push).toBe(true);
+      expect(settings.quiet_hours_enabled).toBe(false);
+    });
+
+    it('should handle quiet hours enabled', () => {
+      const settings: NotificationSettings = {
+        enable_push: false,
+        enable_dm_notifications: true,
+        enable_mention_notifications: true,
+        enable_room_notifications: false,
+        enable_sound: false,
+        notify_on_mobile: false,
+        quiet_hours_enabled: true,
+        quiet_hours_start: '21:00',
+        quiet_hours_end: '07:00',
+      };
+      
+      expect(settings.quiet_hours_enabled).toBe(true);
+    });
+
+    it('should handle all notifications disabled', () => {
+      const settings: NotificationSettings = {
+        enable_push: false,
+        enable_dm_notifications: false,
+        enable_mention_notifications: false,
+        enable_room_notifications: false,
+        enable_sound: false,
+        notify_on_mobile: false,
+        quiet_hours_enabled: false,
+        quiet_hours_start: '',
+        quiet_hours_end: '',
+      };
+      
+      expect(settings.enable_push).toBe(false);
+      expect(settings.enable_dm_notifications).toBe(false);
+    });
+  });
+
+  describe('PushSubscription type', () => {
+    it('should have all required fields', () => {
+      const sub: PushSubscription = {
+        id: 'sub-1',
+        endpoint: 'https://example.com/push',
+        is_active: true,
+        device_id: 'device-123',
+        device_os: 'android',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sub.is_active).toBe(true);
+      expect(sub.device_os).toBe('android');
+    });
+
+    it('should handle inactive subscription', () => {
+      const sub: PushSubscription = {
+        id: 'sub-2',
+        endpoint: 'https://example.com/push',
+        is_active: false,
+        device_id: 'device-456',
+        device_os: 'ios',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sub.is_active).toBe(false);
+    });
+  });
+
+  describe('ServerSettings type', () => {
+    it('should have all required fields', () => {
+      const settings: ServerSettings = {
+        id: 'settings-1',
+        server_name: 'Enclavr',
+        server_description: 'Voice chat platform',
+        allow_registration: true,
+        max_rooms_per_user: 10,
+        max_members_per_room: 100,
+        enable_voice_chat: true,
+        enable_direct_messages: true,
+        enable_file_uploads: true,
+        max_upload_size_mb: 50,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(settings.server_name).toBe('Enclavr');
+      expect(settings.enable_voice_chat).toBe(true);
+    });
+
+    it('should handle minimal settings', () => {
+      const settings: ServerSettings = {
+        id: 'settings-2',
+        server_name: 'Minimal Server',
+        server_description: '',
+        allow_registration: false,
+        max_rooms_per_user: 5,
+        max_members_per_room: 50,
+        enable_voice_chat: false,
+        enable_direct_messages: false,
+        enable_file_uploads: false,
+        max_upload_size_mb: 10,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(settings.allow_registration).toBe(false);
+    });
+  });
+
+  describe('Invite edge cases', () => {
+    it('should handle invite without expiration', () => {
+      const invite: Invite = {
+        id: 'invite-no-exp',
+        code: 'noexp123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '',
+        max_uses: 0,
+        uses: 0,
+        is_revoked: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(invite.expires_at).toBe('');
+      expect(invite.max_uses).toBe(0);
+    });
+
+    it('should handle invite with unlimited uses', () => {
+      const invite: Invite = {
+        id: 'invite-unlimited',
+        code: 'unlimited123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '2026-03-26T10:00:00Z',
+        max_uses: 0,
+        uses: 100,
+        is_revoked: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(invite.max_uses).toBe(0);
+      expect(invite.uses).toBe(100);
+    });
+  });
+
+  describe('Room edge cases', () => {
+    it('should handle room with maximum users', () => {
+      const room: Room = {
+        id: 'max-room',
+        name: 'Max Room',
+        description: 'Room at max capacity',
+        is_private: false,
+        max_users: 1000,
+        created_by: 'user-1',
+        created_at: '2026-02-26T10:00:00Z',
+        user_count: 1000,
+      };
+      
+      expect(room.user_count).toBe(room.max_users);
+    });
+
+    it('should handle room with very long name', () => {
+      const room: Room = {
+        id: 'long-name',
+        name: 'a'.repeat(100),
+        description: 'Room with long name',
+        is_private: false,
+        max_users: 50,
+        created_by: 'user-1',
+        created_at: '2026-02-26T10:00:00Z',
+        user_count: 1,
+      };
+      
+      expect(room.name.length).toBe(100);
+    });
+
+    it('should handle room with unicode name', () => {
+      const room: Room = {
+        id: 'unicode-room',
+        name: '日本語ルーム',
+        description: 'Japanese room name',
+        is_private: false,
+        max_users: 50,
+        created_by: 'user-1',
+        created_at: '2026-02-26T10:00:00Z',
+        user_count: 1,
+      };
+      
+      expect(room.name).toBe('日本語ルーム');
+    });
+  });
+
+  describe('Message edge cases', () => {
+    it('should handle message with only whitespace', () => {
+      const message: Message = {
+        id: 'msg-whitespace',
+        room_id: 'room-1',
+        user_id: 'user-1',
+        username: 'testuser',
+        type: 'text',
+        content: '   \n\t  ',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(message.content).toBe('   \n\t  ');
+    });
+
+    it('should handle message with JSON content', () => {
+      const message: Message = {
+        id: 'msg-json',
+        room_id: 'room-1',
+        user_id: 'user-1',
+        username: 'testuser',
+        type: 'text',
+        content: '{"key": "value", "nested": {"a": 1}}',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(message.content).toContain('"key": "value"');
+    });
+
+    it('should handle message with newlines and special characters', () => {
+      const message: Message = {
+        id: 'msg-newlines',
+        room_id: 'room-1',
+        user_id: 'user-1',
+        username: 'testuser',
+        type: 'text',
+        content: 'Line 1\nLine 2\r\nLine 3\tTabbed',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(message.content).toContain('\n');
+      expect(message.content).toContain('\r\n');
+      expect(message.content).toContain('\t');
+    });
+  });
+
+  describe('Presence edge cases', () => {
+    it('should handle presence with very old last_seen', () => {
+      const presence: Presence = {
+        user_id: 'user-1',
+        username: 'testuser',
+        status: 'offline',
+        last_seen: '2020-01-01T00:00:00Z',
+      };
+      
+      expect(new Date(presence.last_seen).getFullYear()).toBe(2020);
+    });
+
+    it('should handle presence with future last_seen', () => {
+      const presence: Presence = {
+        user_id: 'user-1',
+        username: 'testuser',
+        status: 'online',
+        last_seen: '2030-01-01T00:00:00Z',
+      };
+      
+      expect(new Date(presence.last_seen).getFullYear()).toBe(2030);
     });
   });
 });

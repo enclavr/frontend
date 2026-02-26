@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { ICEConfig } from '@/types';
 
 export interface PeerConnection {
   peerId: string;
@@ -15,16 +16,6 @@ export interface VoiceUser {
   isMuted: boolean;
   isSpeaking: boolean;
   isScreenSharing: boolean;
-}
-
-interface ICEServer {
-  urls: string | string[];
-  username?: string;
-  credential?: string;
-}
-
-interface ICEConfig {
-  ice_servers: ICEServer[];
 }
 
 interface UseWebRTCOptions {

@@ -48,7 +48,7 @@ export interface ICEConfig {
 }
 
 export interface ICEServer {
-  urls: string[];
+  urls: string | string[];
   username?: string;
   credential?: string;
 }
