@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category } from '@/types';
+import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData } from '@/types';
 
 describe('Type Definitions', () => {
   describe('User type', () => {
@@ -510,6 +510,683 @@ describe('Type Definitions', () => {
       };
       
       expect(category.room_count).toBe(0);
+    });
+  });
+
+  describe('Invite type', () => {
+    it('should have all required fields', () => {
+      const invite: Invite = {
+        id: 'invite-1',
+        code: 'abc123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '2026-03-26T10:00:00Z',
+        max_uses: 10,
+        uses: 5,
+        is_revoked: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(invite.code).toBe('abc123');
+      expect(invite.is_revoked).toBe(false);
+      expect(invite.uses).toBeLessThan(invite.max_uses);
+    });
+
+    it('should handle expired invite', () => {
+      const invite: Invite = {
+        id: 'invite-2',
+        code: 'expired123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '2020-01-01T00:00:00Z',
+        max_uses: 5,
+        uses: 0,
+        is_revoked: false,
+        created_at: '2020-01-01T00:00:00Z',
+      };
+      
+      expect(new Date(invite.expires_at).getTime()).toBeLessThan(Date.now());
+    });
+
+    it('should handle maxed out invite', () => {
+      const invite: Invite = {
+        id: 'invite-3',
+        code: 'maxed123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '2026-03-26T10:00:00Z',
+        max_uses: 5,
+        uses: 5,
+        is_revoked: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(invite.uses).toBe(invite.max_uses);
+    });
+
+    it('should handle revoked invite', () => {
+      const invite: Invite = {
+        id: 'invite-4',
+        code: 'revoked123',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        created_by: 'user-1',
+        expires_at: '2026-03-26T10:00:00Z',
+        max_uses: 10,
+        uses: 2,
+        is_revoked: true,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(invite.is_revoked).toBe(true);
+    });
+  });
+
+  describe('ReactionWithCount type', () => {
+    it('should have all required fields', () => {
+      const reaction: ReactionWithCount = {
+        emoji: '👍',
+        count: 5,
+        users: ['user-1', 'user-2', 'user-3', 'user-4', 'user-5'],
+        has_reacted: true,
+      };
+      
+      expect(reaction.count).toBe(5);
+      expect(reaction.users.length).toBe(5);
+      expect(reaction.has_reacted).toBe(true);
+    });
+
+    it('should handle reaction without user reaction', () => {
+      const reaction: ReactionWithCount = {
+        emoji: '❤️',
+        count: 3,
+        users: ['user-1', 'user-2', 'user-3'],
+        has_reacted: false,
+      };
+      
+      expect(reaction.has_reacted).toBe(false);
+    });
+
+    it('should handle single user reaction', () => {
+      const reaction: ReactionWithCount = {
+        emoji: '😂',
+        count: 1,
+        users: ['user-1'],
+        has_reacted: true,
+      };
+      
+      expect(reaction.count).toBe(1);
+      expect(reaction.users).toHaveLength(1);
+    });
+  });
+
+  describe('Role type', () => {
+    it('should have all required fields', () => {
+      const role: Role = {
+        name: 'admin',
+        permissions: ['manage_messages', 'kick_users', 'ban_users'],
+      };
+      
+      expect(role.name).toBe('admin');
+      expect(role.permissions).toHaveLength(3);
+    });
+
+    it('should handle role with no permissions', () => {
+      const role: Role = {
+        name: 'guest',
+        permissions: [],
+      };
+      
+      expect(role.permissions).toHaveLength(0);
+    });
+
+    it('should handle role with single permission', () => {
+      const role: Role = {
+        name: 'member',
+        permissions: ['send_messages'],
+      };
+      
+      expect(role.permissions).toHaveLength(1);
+    });
+  });
+
+  describe('RoomMember type', () => {
+    it('should have all required fields', () => {
+      const member: RoomMember = {
+        user_id: 'user-1',
+        username: 'testuser',
+        avatar_url: 'https://example.com/avatar.png',
+        role: 'member',
+        joined_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(member.role).toBe('member');
+    });
+
+    it('should handle admin role', () => {
+      const member: RoomMember = {
+        user_id: 'user-2',
+        username: 'adminuser',
+        avatar_url: '',
+        role: 'admin',
+        joined_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(member.role).toBe('admin');
+    });
+
+    it('should handle member with no avatar', () => {
+      const member: RoomMember = {
+        user_id: 'user-3',
+        username: 'newuser',
+        avatar_url: '',
+        role: 'member',
+        joined_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(member.avatar_url).toBe('');
+    });
+  });
+
+  describe('Webhook type', () => {
+    it('should have all required fields', () => {
+      const webhook: Webhook = {
+        id: 'webhook-1',
+        room_id: 'room-1',
+        url: 'https://example.com/webhook',
+        events: ['message_created', 'message_deleted'],
+        is_active: true,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(webhook.is_active).toBe(true);
+      expect(webhook.events).toHaveLength(2);
+    });
+
+    it('should handle inactive webhook', () => {
+      const webhook: Webhook = {
+        id: 'webhook-2',
+        room_id: 'room-1',
+        url: 'https://example.com/webhook',
+        events: ['message_created'],
+        is_active: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(webhook.is_active).toBe(false);
+    });
+
+    it('should handle webhook with single event', () => {
+      const webhook: Webhook = {
+        id: 'webhook-3',
+        room_id: 'room-1',
+        url: 'https://example.com/webhook',
+        events: ['user_joined'],
+        is_active: true,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(webhook.events).toHaveLength(1);
+    });
+  });
+
+  describe('WebhookLog type', () => {
+    it('should have all required fields', () => {
+      const log: WebhookLog = {
+        id: 'log-1',
+        webhook_id: 'webhook-1',
+        event: 'message_created',
+        payload: '{"content": "test"}',
+        status_code: 200,
+        success: true,
+        error_message: '',
+        response_body: 'OK',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(log.success).toBe(true);
+      expect(log.status_code).toBe(200);
+    });
+
+    it('should handle failed webhook', () => {
+      const log: WebhookLog = {
+        id: 'log-2',
+        webhook_id: 'webhook-1',
+        event: 'message_created',
+        payload: '{"content": "test"}',
+        status_code: 500,
+        success: false,
+        error_message: 'Internal Server Error',
+        response_body: '',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(log.success).toBe(false);
+      expect(log.error_message).toBe('Internal Server Error');
+    });
+  });
+
+  describe('SearchResult type', () => {
+    it('should have all required fields', () => {
+      const result: SearchResult = {
+        id: 'msg-1',
+        room_id: 'room-1',
+        room_name: 'Test Room',
+        user_id: 'user-1',
+        username: 'testuser',
+        display_name: 'Test User',
+        content: 'Hello world',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(result.content).toBe('Hello world');
+    });
+
+    it('should handle search result with missing optional fields', () => {
+      const result: SearchResult = {
+        id: 'msg-2',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(result.room_id).toBeUndefined();
+      expect(result.content).toBeUndefined();
+    });
+  });
+
+  describe('UploadedFile type', () => {
+    it('should have all required fields', () => {
+      const file: UploadedFile = {
+        id: 'file-1',
+        user_id: 'user-1',
+        room_id: 'room-1',
+        message_id: 'msg-1',
+        file_name: 'document.pdf',
+        file_size: 1024000,
+        content_type: 'application/pdf',
+        url: 'https://example.com/files/document.pdf',
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(file.file_size).toBe(1024000);
+      expect(file.is_deleted).toBe(false);
+    });
+
+    it('should handle deleted file', () => {
+      const file: UploadedFile = {
+        id: 'file-2',
+        user_id: 'user-1',
+        room_id: 'room-1',
+        file_name: 'deleted.txt',
+        file_size: 100,
+        content_type: 'text/plain',
+        url: 'https://example.com/files/deleted.txt',
+        is_deleted: true,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(file.is_deleted).toBe(true);
+    });
+
+    it('should handle file without message_id', () => {
+      const file: UploadedFile = {
+        id: 'file-3',
+        user_id: 'user-1',
+        room_id: 'room-1',
+        file_name: 'standalone.pdf',
+        file_size: 500000,
+        content_type: 'application/pdf',
+        url: 'https://example.com/files/standalone.pdf',
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(file.message_id).toBeUndefined();
+    });
+
+    it('should handle various content types', () => {
+      const contentTypes = [
+        'image/png',
+        'image/gif',
+        'video/mp4',
+        'audio/mpeg',
+        'application/zip',
+      ];
+      
+      contentTypes.forEach(contentType => {
+        const file: UploadedFile = {
+          id: 'file-x',
+          user_id: 'user-1',
+          room_id: 'room-1',
+          file_name: 'file',
+          file_size: 1000,
+          content_type: contentType,
+          url: 'https://example.com/file',
+          is_deleted: false,
+          created_at: '2026-02-26T10:00:00Z',
+        };
+        expect(file.content_type).toBe(contentType);
+      });
+    });
+  });
+
+  describe('Ban type', () => {
+    it('should have all required fields', () => {
+      const ban: Ban = {
+        id: 'ban-1',
+        user_id: 'user-banned',
+        room_id: 'room-1',
+        banned_by: 'admin',
+        reason: 'Spam',
+        created_at: '2026-02-26T10:00:00Z',
+        user: {
+          id: 'user-banned',
+          username: 'spammer',
+          display_name: 'Spam User',
+          avatar_url: '',
+        },
+      };
+      
+      expect(ban.reason).toBe('Spam');
+      expect(ban.expires_at).toBeUndefined();
+    });
+
+    it('should handle temporary ban with expiration', () => {
+      const ban: Ban = {
+        id: 'ban-2',
+        user_id: 'user-2',
+        room_id: 'room-1',
+        banned_by: 'admin',
+        reason: 'Temporary violation',
+        expires_at: '2026-03-26T10:00:00Z',
+        created_at: '2026-02-26T10:00:00Z',
+        user: {
+          id: 'user-2',
+          username: 'tempuser',
+          display_name: 'Temp User',
+          avatar_url: '',
+        },
+      };
+      
+      expect(ban.expires_at).toBeDefined();
+      expect(new Date(ban.expires_at!).getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('should handle permanent ban without expiration', () => {
+      const ban: Ban = {
+        id: 'ban-3',
+        user_id: 'user-3',
+        room_id: 'room-1',
+        banned_by: 'admin',
+        reason: 'Severe violation',
+        created_at: '2026-02-26T10:00:00Z',
+        user: {
+          id: 'user-3',
+          username: 'permauser',
+          display_name: 'Permanent User',
+          avatar_url: '',
+        },
+      };
+      
+      expect(ban.expires_at).toBeUndefined();
+    });
+  });
+
+  describe('CreateBanRequest type', () => {
+    it('should have required fields', () => {
+      const request: CreateBanRequest = {
+        user_id: 'user-1',
+        room_id: 'room-1',
+        reason: 'Spam',
+      };
+      
+      expect(request.user_id).toBe('user-1');
+      expect(request.reason).toBe('Spam');
+    });
+
+    it('should allow optional expires_at', () => {
+      const request: CreateBanRequest = {
+        user_id: 'user-1',
+        room_id: 'room-1',
+        reason: 'Violation',
+        expires_at: '2026-03-26T10:00:00Z',
+      };
+      
+      expect(request.expires_at).toBeDefined();
+    });
+  });
+
+  describe('Report types', () => {
+    it('should handle all report reasons', () => {
+      const reasons: ReportReason[] = ['spam', 'harassment', 'inappropriate_content', 'violence', 'misinformation', 'other'];
+      
+      reasons.forEach(reason => {
+        const report: CreateReportRequest = {
+          reported_id: 'user-1',
+          room_id: 'room-1',
+          reason,
+          description: 'Test report',
+        };
+        expect(report.reason).toBe(reason);
+      });
+    });
+
+    it('should handle all report statuses', () => {
+      const statuses: ReportStatus[] = ['pending', 'reviewed', 'resolved', 'dismissed'];
+      
+      statuses.forEach(status => {
+        const report: Report = {
+          id: 'report-1',
+          reporter_id: 'user-1',
+          reported_id: 'user-2',
+          room_id: 'room-1',
+          reason: 'spam',
+          description: 'Spam content',
+          status,
+          created_at: '2026-02-26T10:00:00Z',
+          updated_at: '2026-02-26T10:00:00Z',
+        };
+        expect(report.status).toBe(status);
+      });
+    });
+
+    it('should handle report with message_id', () => {
+      const report: Report = {
+        id: 'report-1',
+        reporter_id: 'user-1',
+        reported_id: 'user-2',
+        room_id: 'room-1',
+        message_id: 'msg-1',
+        reason: 'harassment',
+        description: 'Harassing message',
+        status: 'pending',
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(report.message_id).toBe('msg-1');
+    });
+
+    it('should handle reviewed report with notes', () => {
+      const report: Report = {
+        id: 'report-1',
+        reporter_id: 'user-1',
+        reported_id: 'user-2',
+        room_id: 'room-1',
+        reason: 'spam',
+        description: 'Spam content',
+        status: 'resolved',
+        reviewed_by: 'admin',
+        review_notes: 'User was warned',
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T12:00:00Z',
+      };
+      
+      expect(report.reviewed_by).toBe('admin');
+      expect(report.review_notes).toBe('User was warned');
+    });
+  });
+
+  describe('ServerEmoji type', () => {
+    it('should have all required fields', () => {
+      const emoji: ServerEmoji = {
+        id: 'emoji-1',
+        name: 'wave',
+        image_url: 'https://example.com/emoji/wave.png',
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(emoji.name).toBe('wave');
+    });
+
+    it('should handle emoji with special characters in name', () => {
+      const emoji: ServerEmoji = {
+        id: 'emoji-2',
+        name: '123_numbers',
+        image_url: 'https://example.com/emoji/123.png',
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(emoji.name).toBe('123_numbers');
+    });
+  });
+
+  describe('ServerSticker type', () => {
+    it('should have all required fields', () => {
+      const sticker: ServerSticker = {
+        id: 'sticker-1',
+        name: 'happy',
+        image_url: 'https://example.com/sticker/happy.png',
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sticker.name).toBe('happy');
+    });
+  });
+
+  describe('SoundboardSound type', () => {
+    it('should have all required fields', () => {
+      const sound: SoundboardSound = {
+        id: 'sound-1',
+        name: 'Airhorn',
+        audio_url: 'https://example.com/sounds/airhorn.mp3',
+        volume: 0.8,
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sound.volume).toBe(0.8);
+    });
+
+    it('should handle sound with hotkey', () => {
+      const sound: SoundboardSound = {
+        id: 'sound-2',
+        name: 'Drum Roll',
+        audio_url: 'https://example.com/sounds/drum.mp3',
+        hotkey: 'F1',
+        volume: 1.0,
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sound.hotkey).toBe('F1');
+    });
+
+    it('should handle sound with zero volume', () => {
+      const sound: SoundboardSound = {
+        id: 'sound-3',
+        name: 'Silent',
+        audio_url: 'https://example.com/sounds/silent.mp3',
+        volume: 0,
+        created_by: 'admin',
+        created_at: '2026-02-26T10:00:00Z',
+      };
+      
+      expect(sound.volume).toBe(0);
+    });
+  });
+
+  describe('Analytics types', () => {
+    it('should handle AnalyticsOverview', () => {
+      const analytics: AnalyticsOverview = {
+        total_messages: 10000,
+        total_users: 500,
+        active_users: 200,
+        new_users: 50,
+        voice_minutes: 3000,
+        messages_per_day: 333.33,
+      };
+      
+      expect(analytics.total_messages).toBe(10000);
+      expect(analytics.active_users).toBeLessThan(analytics.total_users);
+    });
+
+    it('should handle DailyActivity', () => {
+      const activity: DailyActivity = {
+        date: '2026-02-26',
+        message_count: 500,
+        user_count: 100,
+      };
+      
+      expect(activity.date).toBe('2026-02-26');
+    });
+
+    it('should handle ChannelStats', () => {
+      const stats: ChannelStats = {
+        room_id: 'room-1',
+        room_name: 'General',
+        message_count: 1000,
+        user_count: 50,
+      };
+      
+      expect(stats.message_count).toBeGreaterThan(0);
+    });
+
+    it('should handle HourlyStats', () => {
+      const stats: HourlyStats = {
+        hour: 14,
+        message_count: 100,
+        user_count: 20,
+      };
+      
+      expect(stats.hour).toBeGreaterThanOrEqual(0);
+      expect(stats.hour).toBeLessThan(24);
+    });
+
+    it('should handle TopUser', () => {
+      const topUser: TopUser = {
+        user_id: 'user-1',
+        username: 'topuser',
+        avatar_url: 'https://example.com/avatar.png',
+        message_count: 5000,
+      };
+      
+      expect(topUser.message_count).toBe(5000);
+    });
+  });
+
+  describe('TypingData type', () => {
+    it('should have required fields', () => {
+      const typing: TypingData = {
+        user_id: 'user-1',
+        username: 'testuser',
+      };
+      
+      expect(typing.user_id).toBe('user-1');
+    });
+
+    it('should handle typing data without username', () => {
+      const typing: TypingData = {
+        user_id: 'user-1',
+      };
+      
+      expect(typing.username).toBeUndefined();
     });
   });
 });

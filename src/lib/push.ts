@@ -179,10 +179,10 @@ class PushService {
   }
 
   private getKeys(subscription: PushSubscriptionObject): { p256dh: string; auth: string } {
-    if ('keys' in subscription) {
+    if ('keys' in subscription && subscription.keys) {
       return {
-        p256dh: (subscription as any).keys.p256dh,
-        auth: (subscription as any).keys.auth,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
       };
     }
     return { p256dh: '', auth: '' };
