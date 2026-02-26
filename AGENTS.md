@@ -110,3 +110,10 @@ Manages the Next.js frontend for Enclavr voice chat platform.
 - Components in `src/components/`
 - Hooks in `src/hooks/`
 - Utils in `src/lib/`
+
+## Refactoring
+- When codebase grows too large (>50 files in a module), refactor into smaller sub-modules
+- Create new npm packages for frontend modularity (use bun to init packages)
+- Maintain clean boundaries between sub-modules
+- Update AGENTS.md and README.md when adding new sub-modules
+- Push new sub-module repositories to GitHub and link them in parent repo

@@ -50,3 +50,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 - Server invites
 - Admin settings
 - Responsive design
+
+## Refactoring
+
+When the codebase grows too large (>50 files in a module), refactor into smaller sub-modules:
+- Create new npm packages using `bun init` and maintain via `bun install`
+- Maintain clean boundaries between sub-modules
+- Push new sub-module repositories to GitHub and link them in parent repo
+- Update this README with new sub-modules
