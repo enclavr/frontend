@@ -15,6 +15,7 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
     },
+    pool: 'forks',
   },
   resolve: {
     alias: {
