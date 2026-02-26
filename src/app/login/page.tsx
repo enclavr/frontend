@@ -28,14 +28,31 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
+      setError('Username and password are required');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await login(username, password);
+      await login(trimmedUsername, trimmedPassword);
       router.push('/rooms');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUsernameBlur = () => {
+    setUsername(username.trim());
+  };
+
+  const handlePasswordBlur = () => {
+    setPassword(password.trim());
   };
 
   const handleOIDCLogin = () => {
@@ -63,6 +80,7 @@ export default function LoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onBlur={handleUsernameBlur}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -76,6 +94,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={handlePasswordBlur}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -117,6 +136,14 @@ export default function LoginPage() {
             Register
           </Link>
         </p>
+
+        <footer className="mt-6 pt-4 border-t border-gray-700 text-center text-sm text-gray-500">
+          <Link href="/register" className="hover:text-blue-400 mr-4">
+            Register
+          </Link>
+          <span className="text-gray-600">|</span>
+          <a href="#" className="hover:text-blue-400 ml-4">Help</a>
+        </footer>
       </div>
     </div>
   );

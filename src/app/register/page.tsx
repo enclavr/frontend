@@ -19,14 +19,42 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
 
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
+      setError('All fields are required');
+      setLoading(false);
+      return;
+    }
+
+    if (!trimmedUsername || /^\s+$/.test(trimmedUsername)) {
+      setError('Username cannot be empty or whitespace only');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await register(username, email, password);
+      await register(trimmedUsername, trimmedEmail, trimmedPassword);
       router.push('/rooms');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUsernameBlur = () => {
+    setUsername(username.trim());
+  };
+
+  const handleEmailBlur = () => {
+    setEmail(email.trim());
+  };
+
+  const handlePasswordBlur = () => {
+    setPassword(password.trim());
   };
 
   return (
@@ -50,6 +78,7 @@ export default function RegisterPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onBlur={handleUsernameBlur}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -60,9 +89,10 @@ export default function RegisterPage() {
               Email
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={handleEmailBlur}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -76,6 +106,7 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={handlePasswordBlur}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -96,6 +127,14 @@ export default function RegisterPage() {
             Login
           </Link>
         </p>
+
+        <footer className="mt-6 pt-4 border-t border-gray-700 text-center text-sm text-gray-500">
+          <Link href="/login" className="hover:text-blue-400 mr-4">
+            Login
+          </Link>
+          <span className="text-gray-600">|</span>
+          <a href="#" className="hover:text-blue-400 ml-4">Help</a>
+        </footer>
       </div>
     </div>
   );
