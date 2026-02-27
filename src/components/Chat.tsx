@@ -205,6 +205,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
 
   useEffect(() => {
     const fetchPinnedMessages = async () => {
+      if (typeof window === 'undefined') return;
       const token = localStorage.getItem('token');
       try {
         const res = await fetch(`/api/pinnedmessages?room_id=${roomId}`, {
@@ -259,6 +260,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   }, [deleteMessage]);
 
   const handlePin = useCallback(async (messageId: string) => {
+    if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`/api/pinnedmessage/pin?room_id=${roomId}`, {
@@ -279,6 +281,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   }, [roomId]);
 
   const handleUnpin = useCallback(async (pinId: string) => {
+    if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`/api/pinnedmessage/unpin?pin_id=${pinId}`, {
@@ -294,6 +297,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   }, []);
 
   const fetchReactions = useCallback(async (messageId: string) => {
+    if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`/api/reactions?message_id=${messageId}`, {
@@ -309,6 +313,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   }, []);
 
   const handleAddReaction = useCallback(async (messageId: string, emoji: string) => {
+    if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     try {
       const res = await fetch('/api/reaction/add', {
@@ -329,6 +334,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
   }, [fetchReactions]);
 
   const handleRemoveReaction = useCallback(async (messageId: string, emoji: string) => {
+    if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`/api/reaction/remove?message_id=${messageId}&emoji=${encodeURIComponent(emoji)}`, {
