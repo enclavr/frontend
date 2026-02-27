@@ -11,3 +11,4 @@ test-results/
 memory-bank/
 *.tsbuildinfo
 next-env.d.ts
+coverage/
