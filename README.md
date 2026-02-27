@@ -24,7 +24,35 @@ bun run dev
 | `bun run typecheck` | Run TypeScript check |
 | `bun run test` | Run Vitest unit tests (watch mode) |
 | `bun run test:run` | Run Vitest unit tests (single run) |
+| `bun run test:coverage` | Run Vitest with coverage report |
 | `bun run test:e2e` | Run Playwright E2E tests |
+| `bun run test:e2e:ui` | Run Playwright E2E tests with UI |
+
+## Testing
+
+This project uses **Vitest** for unit tests and **Playwright** for E2E tests.
+
+### Unit Tests
+- Tests are co-located with components (e.g., `Button.tsx` and `Button.test.tsx`)
+- Edge case tests are in `src/test/*.edge.test.ts`
+- Run `bun run test:run` to execute all unit tests
+- Run `bun run test:coverage` to see coverage report
+
+### Test Coverage
+The codebase includes comprehensive tests for:
+- **Hooks**: useChat, usePresence, useDM, useWebRTC
+- **Store**: Zustand stores (useAuthStore, useRoomStore)
+- **API**: API client methods
+- **Components**: Auth forms, UI components
+
+### Edge Case Testing
+Edge case tests cover:
+- Empty inputs and whitespace handling
+- Error handling and recovery
+- Network failure scenarios
+- Unicode and special characters
+- Rapid successive operations
+- Connection state transitions
 
 ## Environment Variables
 

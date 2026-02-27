@@ -159,4 +159,190 @@ describe('useDM Hook - Edge Cases', () => {
       expect(typeof result.current.deleteMessage).toBe('function');
     });
   });
+
+  describe('updateMessage', () => {
+    it('should handle update message successfully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.updateDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'Updated message',
+        is_edited: true,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:05:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.updateMessage('msg-1', 'Updated message');
+      });
+
+      expect(api.updateDM).toHaveBeenCalledWith('msg-1', 'Updated message');
+    });
+
+    it('should handle update error', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.updateDM).mockRejectedValueOnce(new Error('Not authorized'));
+
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      let errorCaught = false;
+      try {
+        await act(async () => {
+          await result.current.updateMessage('msg-1', 'New content');
+        });
+      } catch {
+        errorCaught = true;
+      }
+
+      expect(errorCaught).toBe(true);
+    });
+
+    it('should handle non-Error exception', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.updateDM).mockRejectedValueOnce('Failed');
+
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      let errorCaught = false;
+      try {
+        await act(async () => {
+          await result.current.updateMessage('msg-1', 'Content');
+        });
+      } catch {
+        errorCaught = true;
+      }
+
+      expect(errorCaught).toBe(true);
+    });
+  });
+
+  describe('deleteMessage', () => {
+    it('should handle delete message successfully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.deleteDM).mockResolvedValueOnce({ status: 'ok' });
+
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.deleteMessage('msg-1');
+      });
+
+      expect(api.deleteDM).toHaveBeenCalledWith('msg-1');
+    });
+
+    it('should handle delete error', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.deleteDM).mockRejectedValueOnce(new Error('Not found'));
+
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      let errorCaught = false;
+      try {
+        await act(async () => {
+          await result.current.deleteMessage('msg-1');
+        });
+      } catch {
+        errorCaught = true;
+      }
+
+      expect(errorCaught).toBe(true);
+    });
+  });
+
+  describe('message content edge cases', () => {
+    it('should handle empty message content', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      let errorCaught = false;
+      try {
+        await act(async () => {
+          await result.current.sendMessage('user-2', '');
+        });
+      } catch {
+        errorCaught = false;
+      }
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', '');
+    });
+
+    it('should handle message with only whitespace', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', '   ');
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', '   ');
+    });
+
+    it('should handle special characters in message', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'Special <>&" characters',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', 'Special <>&" characters');
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', 'Special <>&" characters');
+    });
+  });
+
+  describe('rapid operations', () => {
+    it('should handle rapid fetchMessages calls', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await Promise.all([
+          result.current.fetchMessages('user-2'),
+          result.current.fetchMessages('user-3'),
+          result.current.fetchMessages('user-4'),
+        ]);
+      });
+
+      expect(api.getDMMessages).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle rapid sendMessage calls', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM)
+        .mockResolvedValueOnce({ id: 'msg-1', sender_id: 'user-1', receiver_id: 'user-2', content: 'Hi', is_edited: false, is_deleted: false, created_at: '', updated_at: '', sender: {} as never, receiver: {} as never })
+        .mockResolvedValueOnce({ id: 'msg-2', sender_id: 'user-1', receiver_id: 'user-2', content: 'Hello', is_edited: false, is_deleted: false, created_at: '', updated_at: '', sender: {} as never, receiver: {} as never });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await Promise.all([
+          result.current.sendMessage('user-2', 'Hi'),
+          result.current.sendMessage('user-2', 'Hello'),
+        ]);
+      });
+
+      expect(api.sendDM).toHaveBeenCalledTimes(2);
+    });
+  });
 });

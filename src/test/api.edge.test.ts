@@ -413,4 +413,51 @@ describe('API Content Types', () => {
       })
     );
   });
+
+  it('should handle very large limit parameters', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    await api.getMessages('room-1', 10000);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('limit=10000'),
+      expect.any(Object)
+    );
+  });
+
+  it('should handle zero limit parameter', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    await api.getMessages('room-1', 0);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('limit=0'),
+      expect.any(Object)
+    );
+  });
+
+  it('should merge custom headers with default headers', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ user: {}, access_token: '', refresh_token: '' }),
+    });
+
+    const originalRequest = api.login.bind(api);
+    await api.login('user', 'pass');
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+      })
+    );
+  });
 });

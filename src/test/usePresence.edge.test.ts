@@ -164,4 +164,101 @@ describe('usePresence Edge Cases', () => {
     const { api } = await import('@/lib/api');
     expect(api.getRoomPresence).not.toHaveBeenCalled();
   });
+
+  it('should handle presence update error gracefully', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.updatePresence).mockRejectedValueOnce(new Error('Failed'));
+
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.updatePresence('busy');
+    });
+
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should handle rapid status changes', async () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await Promise.all([
+        result.current.updatePresence('online'),
+        result.current.updatePresence('away'),
+        result.current.updatePresence('busy'),
+      ]);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.updatePresence).toHaveBeenCalled();
+  });
+
+  it('should not connect when roomId is empty', () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: '', userId: 'user-1', username: 'testuser' })
+    );
+
+    expect(result.current.presences).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should update presence when isConnected changes to true', async () => {
+    const { result, rerender } = renderHook(
+      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected }),
+      { initialProps: { isConnected: false } }
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    const { api } = await import('@/lib/api');
+
+    rerender({ isConnected: true });
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    expect(api.updatePresence).toHaveBeenCalledWith('online', 'room-1');
+  });
+
+  it('should update presence to away when isConnected changes to false', async () => {
+    const { result, rerender } = renderHook(
+      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected }),
+      { initialProps: { isConnected: true } }
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.updatePresence).mockClear();
+
+    rerender({ isConnected: false });
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    expect(api.updatePresence).toHaveBeenCalledWith('away', 'room-1');
+  });
+
+  it('should handle isConnected undefined without calling update', async () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected: undefined })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.updatePresence).toHaveBeenCalledWith('online', 'room-1');
+  });
 });

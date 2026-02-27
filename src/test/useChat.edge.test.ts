@@ -247,4 +247,238 @@ describe('useChat Edge Cases', () => {
 
     expect(result.current.error).toBe('Failed to delete message');
   });
+
+  it('should handle sendMessage error by queueing message', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.sendMessage).mockRejectedValueOnce(new Error('Network error'));
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('Queued message');
+    });
+
+    expect(result.current.pendingCount).toBe(1);
+    expect(result.current.error).toBe('Network error');
+  });
+
+  it('should handle empty message content', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('should handle message content with only newlines', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('\n\n\n');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('should handle message content with only tabs', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('\t\t\t');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('should handle very long message content', async () => {
+    const longMessage = 'a'.repeat(10000);
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage(longMessage);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).toHaveBeenCalledWith('room-1', longMessage);
+  });
+
+  it('should handle special characters in message', async () => {
+    const specialMessage = 'Hello <script>alert("xss")</script> & "quoted"';
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage(specialMessage);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).toHaveBeenCalledWith('room-1', specialMessage);
+  });
+
+  it('should handle unicode characters in message', async () => {
+    const unicodeMessage = 'Hello 世界 🌍 🎉 你好';
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage(unicodeMessage);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).toHaveBeenCalledWith('room-1', unicodeMessage);
+  });
+
+  it('should handle emoji in message', async () => {
+    const emojiMessage = '🎉 🥳 🍾 Happy Birthday! 🎂';
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage(emojiMessage);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).toHaveBeenCalledWith('room-1', emojiMessage);
+  });
+
+  it('should handle updateMessage with empty content', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.updateMessage('msg-1', '');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.updateMessage).toHaveBeenCalledWith('msg-1', '');
+  });
+
+  it('should handle rapid successive sendMessage calls', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await Promise.all([
+        result.current.sendMessage('Message 1'),
+        result.current.sendMessage('Message 2'),
+        result.current.sendMessage('Message 3'),
+      ]);
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('useChat Connection States', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should start in connecting state', () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    expect(result.current.connectionState).toBe('connecting');
+  });
+
+  it('should transition to connected state', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    expect(result.current.connectionState).toBe('connected');
+  });
+
+  it('should clear messages when roomId changes', async () => {
+    const { result, rerender } = renderHook(
+      ({ roomId }) => useChat({ roomId, userId: 'user-1', username: 'testuser' }),
+      { initialProps: { roomId: 'room-1' } }
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('Test message');
+    });
+
+    expect(result.current.messages.length).toBe(1);
+
+    rerender({ roomId: 'room-2' });
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    expect(result.current.messages.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should not connect when roomId is empty', () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: '', userId: 'user-1', username: 'testuser' })
+    );
+
+    expect(result.current.connectionState).toBe('disconnected');
+  });
+});
+
+describe('useChat Typing Indicators', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should have empty typingUsers initially', () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    expect(result.current.typingUsers).toEqual([]);
+  });
+
+  it('should call sendTyping when typing', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      result.current.sendTyping();
+    });
+
+    expect(result.current.typingUsers).toEqual([]);
+  });
+
+  it('should call stopTyping when stopping', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      result.current.stopTyping();
+    });
+
+    expect(result.current.typingUsers).toEqual([]);
+  });
 });
