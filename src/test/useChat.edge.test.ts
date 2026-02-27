@@ -135,6 +135,63 @@ describe('useChat Hook', () => {
       const { api } = await import('@/lib/api');
       expect(api.sendMessage).not.toHaveBeenCalled();
     });
+
+    it('should handle Unicode characters in message', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() =>
+        useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      );
+
+      await act(async () => {
+        await result.current.sendMessage('Hello 世界 🌍 Émoji');
+      });
+
+      expect(api.sendMessage).toHaveBeenCalledWith('room-1', 'Hello 世界 🌍 Émoji');
+    });
+
+    it('should handle HTML/script tags in message content', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() =>
+        useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      );
+
+      await act(async () => {
+        await result.current.sendMessage('<script>alert("xss")</script>');
+      });
+
+      expect(api.sendMessage).toHaveBeenCalledWith('room-1', '<script>alert("xss")</script>');
+    });
+
+    it('should handle very long message content', async () => {
+      const longMessage = 'a'.repeat(10000);
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() =>
+        useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      );
+
+      await act(async () => {
+        await result.current.sendMessage(longMessage);
+      });
+
+      expect(api.sendMessage).toHaveBeenCalledWith('room-1', longMessage);
+    });
+
+    it('should handle message with special formatting characters', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() =>
+        useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      );
+
+      await act(async () => {
+        await result.current.sendMessage('**bold** *italic* `code` #header');
+      });
+
+      expect(api.sendMessage).toHaveBeenCalledWith('room-1', '**bold** *italic* `code` #header');
+    });
   });
 
   describe('updateMessage', () => {
