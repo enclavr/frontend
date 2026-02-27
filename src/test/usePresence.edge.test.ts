@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { usePresence } from '@/hooks/usePresence';
 
 vi.mock('@/lib/api', () => ({
@@ -22,7 +22,7 @@ class MockWebSocket {
   onclose: ((event: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
 
   constructor(public url: string) {
-    setTimeout(() => this.onopen?.(), 0);
+    queueMicrotask(() => this.onopen?.());
   }
 
   send(data: string) {
