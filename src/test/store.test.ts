@@ -76,6 +76,8 @@ describe('useAuthStore', () => {
       expect(result.current.user).toBe(null);
       expect(result.current.token).toBe(null);
       expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBe(null);
     });
   });
 
@@ -91,6 +93,20 @@ describe('useAuthStore', () => {
       expect(result.current.user).toBeDefined();
       expect(result.current.user?.username).toBe('testuser');
       expect(result.current.token).toBe('test-token');
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBe(null);
+    });
+
+    it('should set isLoading during login', async () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      const promise = act(async () => {
+        const loginPromise = result.current.login('testuser', 'password');
+        return loginPromise;
+      });
+
+      await promise;
+      expect(result.current.isLoading).toBe(false);
     });
 
     it('should handle login failure gracefully', async () => {
@@ -104,6 +120,34 @@ describe('useAuthStore', () => {
           await result.current.login('testuser', 'wrongpassword');
         })
       ).rejects.toThrow('Invalid credentials');
+    });
+
+    it('should handle login failure gracefully', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.login).mockRejectedValueOnce(new Error('Invalid credentials'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.login('testuser', 'wrongpassword');
+        })
+      ).rejects.toThrow('Invalid credentials');
+    });
+
+    it('should handle non-Error exception on login', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.login).mockRejectedValueOnce('Network failed');
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.login('testuser', 'password');
+        })
+      ).rejects.toThrow();
+
+      expect(result.current.isAuthenticated).toBe(false);
     });
   });
 
@@ -161,6 +205,37 @@ describe('useAuthStore', () => {
       expect(result.current.user).toEqual(mockUser);
     });
   });
+
+  describe('clearError', () => {
+    it('should clear error state', () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      useAuthStore.setState({ error: 'Some error' });
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.error).toBe(null);
+    });
+
+    it('should not affect other state when clearing error', async () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      await act(async () => {
+        await result.current.login('testuser', 'password');
+      });
+
+      useAuthStore.setState({ error: 'Some error' });
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.error).toBe(null);
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+  });
 });
 
 describe('useRoomStore', () => {
@@ -177,6 +252,8 @@ describe('useRoomStore', () => {
       const { result } = renderHook(() => useRoomStore());
       expect(result.current.rooms).toEqual([]);
       expect(result.current.currentRoom).toBe(null);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBe(null);
     });
   });
 
@@ -490,6 +567,18 @@ describe('useRoomStore', () => {
       });
 
       expect(result.current.currentRoom?.user_count).toBe(50);
+    });
+
+    it('should set isLoading during fetchRooms', async () => {
+      const { result } = renderHook(() => useRoomStore());
+
+      const promise = act(async () => {
+        const fetchPromise = result.current.fetchRooms();
+        return fetchPromise;
+      });
+
+      await promise;
+      expect(result.current.isLoading).toBe(false);
     });
   });
 

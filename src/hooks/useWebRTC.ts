@@ -238,7 +238,6 @@ export function useWebRTC({
             ]);
             break;
           }
-            break;
           case 'user-left': {
             const peer = peers.get(data.userId);
             if (peer) {

@@ -167,7 +167,12 @@ class PushService {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return false;
     }
-    return await navigator.serviceWorker.ready.then(() => true).catch(() => false);
+    try {
+      await navigator.serviceWorker.ready;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async isSubscribed(): Promise<boolean> {
