@@ -74,6 +74,11 @@ export function useWebRTC({
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const toggleScreenShareRef = useRef<(() => Promise<void>) | null>(null);
+  const peersRef = useRef<Map<string, PeerConnection>>(new Map());
+
+  useEffect(() => {
+    peersRef.current = peers;
+  }, [peers]);
 
   useEffect(() => {
     fetchICEServers().then(setIceServers);
@@ -143,22 +148,22 @@ export function useWebRTC({
 
   const handleAnswer = useCallback(
     async (peerId: string, answer: RTCSessionDescriptionInit) => {
-      const peer = peers.get(peerId);
+      const peer = peersRef.current.get(peerId);
       if (peer) {
         await peer.connection.setRemoteDescription(new RTCSessionDescription(answer));
       }
     },
-    [peers]
+    []
   );
 
   const handleIceCandidate = useCallback(
     async (peerId: string, candidate: RTCIceCandidateInit) => {
-      const peer = peers.get(peerId);
+      const peer = peersRef.current.get(peerId);
       if (peer) {
         await peer.connection.addIceCandidate(new RTCIceCandidate(candidate));
       }
     },
-    [peers]
+    []
   );
 
   const connect = useCallback(async () => {
@@ -207,6 +212,7 @@ export function useWebRTC({
                 userId: data.userId,
                 connection: newPeer,
               });
+              peersRef.current = new Map(prev);
               return new Map(prev);
             });
 
@@ -239,11 +245,11 @@ export function useWebRTC({
             break;
           }
           case 'user-left': {
-            const peer = peers.get(data.userId);
+            const peer = peersRef.current.get(data.userId);
             if (peer) {
               peer.connection.close();
-              peers.delete(data.userId);
-              setPeers(new Map(peers));
+              peersRef.current.delete(data.userId);
+              setPeers(new Map(peersRef.current));
             }
             setVoiceUsers((prev) => prev.filter((u) => u.userId !== data.userId));
             onUserLeft?.(data.userId);
@@ -298,7 +304,7 @@ export function useWebRTC({
     } catch (error) {
       console.error('Failed to initialize WebRTC:', error);
     }
-  }, [roomId, userId, username, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, peers, onUserJoined, onUserLeft, onUserMuted]);
+  }, [roomId, userId, username, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, onUserJoined, onUserLeft, onUserMuted]);
 
   const disconnect = useCallback(() => {
     if (localStreamRef.current) {
@@ -313,7 +319,8 @@ export function useWebRTC({
       setScreenStream(null);
     }
 
-    peers.forEach((peer) => peer.connection.close());
+    peersRef.current.forEach((peer) => peer.connection.close());
+    peersRef.current = new Map();
     setPeers(new Map());
     setVoiceUsers([]);
     setIsScreenSharing(false);
@@ -324,7 +331,7 @@ export function useWebRTC({
     }
 
     setIsConnected(false);
-  }, [peers]);
+  }, []);
 
   const toggleMute = useCallback(() => {
     if (localStreamRef.current) {
@@ -369,7 +376,7 @@ export function useWebRTC({
         setLocalStream(stream);
         setIsVideoEnabled(true);
 
-        peers.forEach((peer) => {
+        peersRef.current.forEach((peer) => {
           peer.connection.addTrack(videoTrack, stream);
         });
 
@@ -382,7 +389,7 @@ export function useWebRTC({
         console.error('Failed to enable video:', error);
       }
     }
-  }, [peers]);
+  }, []);
 
   const toggleScreenShare = useCallback(async () => {
     if (isScreenSharing && screenStreamRef.current) {
@@ -391,7 +398,7 @@ export function useWebRTC({
       setScreenStream(null);
       setIsScreenSharing(false);
 
-      peers.forEach((peer) => {
+      peersRef.current.forEach((peer) => {
         const senders = peer.connection.getSenders();
         const videoSender = senders.find(s => s.track?.kind === 'video');
         if (videoSender) {
@@ -426,7 +433,7 @@ export function useWebRTC({
         setScreenStream(stream);
         setIsScreenSharing(true);
 
-        peers.forEach((peer) => {
+        peersRef.current.forEach((peer) => {
           peer.connection.addTrack(screenTrack, stream);
         });
 
@@ -439,7 +446,7 @@ export function useWebRTC({
         console.error('Failed to start screen sharing:', error);
       }
     }
-  }, [isScreenSharing, peers]);
+  }, [isScreenSharing]);
 
   useEffect(() => {
     toggleScreenShareRef.current = toggleScreenShare;

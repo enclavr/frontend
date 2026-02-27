@@ -580,6 +580,101 @@ describe('useRoomStore', () => {
       await promise;
       expect(result.current.isLoading).toBe(false);
     });
+
+    it('should handle joinRoom with incorrect password', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.joinRoom).mockRejectedValueOnce(new Error('Incorrect password'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.joinRoom('room-1', 'wrongpassword');
+        })
+      ).rejects.toThrow('Incorrect password');
+    });
+
+    it('should handle createRoom with empty name', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.createRoom).mockRejectedValueOnce(new Error('Name required'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.createRoom('');
+        })
+      ).rejects.toThrow('Name required');
+    });
+
+    it('should handle createRoom with very long name', async () => {
+      const { api } = await import('@/lib/api');
+      const longName = 'a'.repeat(200);
+      vi.mocked(api.createRoom).mockRejectedValueOnce(new Error('Name too long'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.createRoom(longName);
+        })
+      ).rejects.toThrow('Name too long');
+    });
+
+    it('should handle duplicate room creation', async () => {
+      useRoomStore.setState({
+        rooms: [{ id: 'room-1', name: 'Existing Room', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 5 }],
+        currentRoom: null,
+      });
+
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.createRoom).mockRejectedValueOnce(new Error('Room already exists'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.createRoom('Existing Room');
+        })
+      ).rejects.toThrow('Room already exists');
+
+      expect(result.current.rooms.length).toBe(1);
+    });
+
+    it('should update existing room when joining', async () => {
+      useRoomStore.setState({
+        rooms: [
+          { id: 'room-1', name: 'Room 1', description: '', is_private: false, max_users: 50, created_by: 'user-1', created_at: '2026-02-26T10:00:00Z', user_count: 5 },
+        ],
+        currentRoom: null,
+      });
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await act(async () => {
+        await result.current.joinRoom('room-1');
+      });
+
+      expect(result.current.rooms[0].user_count).toBeGreaterThan(5);
+    });
+
+    it('should handle leaveRoom when not in any room', async () => {
+      useRoomStore.setState({
+        rooms: [],
+        currentRoom: null,
+      });
+
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.leaveRoom).mockRejectedValueOnce(new Error('Not in room'));
+
+      const { result } = renderHook(() => useRoomStore());
+
+      await expect(
+        act(async () => {
+          await result.current.leaveRoom('room-1');
+        })
+      ).rejects.toThrow('Not in room');
+    });
   });
 
   describe('Auth Store Edge Cases', () => {
@@ -665,6 +760,82 @@ describe('useRoomStore', () => {
 
       expect(result.current.token).toBe(null);
       expect(result.current.refreshToken).toBe(null);
+    });
+
+    it('should handle login with empty credentials', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.login).mockRejectedValueOnce(new Error('Invalid credentials'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.login('', '');
+        })
+      ).rejects.toThrow('Invalid credentials');
+
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should handle register with invalid email', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.register).mockRejectedValueOnce(new Error('Invalid email'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.register('user', 'invalid-email', 'pass');
+        })
+      ).rejects.toThrow('Invalid email');
+
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should handle register with short password', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.register).mockRejectedValueOnce(new Error('Password too short'));
+
+      const { result } = renderHook(() => useAuthStore());
+
+      await expect(
+        act(async () => {
+          await result.current.register('user', 'test@test.com', '123');
+        })
+      ).rejects.toThrow('Password too short');
+
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should preserve auth state after logout', async () => {
+      useAuthStore.setState({
+        user: { id: '1', username: 'test', email: 'test@test.com', display_name: 'Test', avatar_url: '', is_admin: false },
+        token: 'test-token',
+        refreshToken: 'refresh-token',
+        isAuthenticated: true,
+      });
+
+      const { result } = renderHook(() => useAuthStore());
+
+      act(() => {
+        result.current.logout();
+      });
+
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBe(null);
+    });
+
+    it('should handle concurrent login attempts', async () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      await act(async () => {
+        await Promise.all([
+          result.current.login('user1', 'pass1'),
+          result.current.login('user2', 'pass2'),
+        ]);
+      });
+
+      expect(result.current.isAuthenticated).toBe(true);
     });
   });
 });
