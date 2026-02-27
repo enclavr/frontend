@@ -45,7 +45,7 @@ describe('usePresence Hook', () => {
   describe('Initial State', () => {
     it('should have empty presences array initially', () => {
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       expect(result.current.presences).toEqual([]);
@@ -53,7 +53,7 @@ describe('usePresence Hook', () => {
 
     it('should have null error initially', () => {
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       expect(result.current.error).toBeNull();
@@ -61,7 +61,7 @@ describe('usePresence Hook', () => {
 
     it('should expose required functions', () => {
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       expect(result.current.updatePresence).toBeDefined();
@@ -72,7 +72,7 @@ describe('usePresence Hook', () => {
   describe('updatePresence', () => {
     it('should call API to update presence', async () => {
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       await act(async () => {
@@ -85,7 +85,7 @@ describe('usePresence Hook', () => {
 
     it('should handle updatePresence without roomId', async () => {
       const { result } = renderHook(() =>
-        usePresence({ roomId: '', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: '', userId: 'user-1' })
       );
 
       await act(async () => {
@@ -103,7 +103,7 @@ describe('usePresence Hook', () => {
       vi.mocked(api.getRoomPresence).mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       await act(async () => {
@@ -118,7 +118,7 @@ describe('usePresence Hook', () => {
       vi.mocked(api.getRoomPresence).mockRejectedValueOnce('Unknown error');
 
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       await act(async () => {
@@ -140,7 +140,7 @@ describe('usePresence Edge Cases', () => {
     
     for (const status of statuses) {
       const { result } = renderHook(() =>
-        usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+        usePresence({ roomId: 'room-1', userId: 'user-1' })
       );
 
       await act(async () => {
@@ -154,7 +154,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should handle empty roomId for fetchPresence', async () => {
     const { result } = renderHook(() =>
-      usePresence({ roomId: '', userId: 'user-1', username: 'testuser' })
+      usePresence({ roomId: '', userId: 'user-1' })
     );
 
     await act(async () => {
@@ -170,7 +170,7 @@ describe('usePresence Edge Cases', () => {
     vi.mocked(api.updatePresence).mockRejectedValueOnce(new Error('Failed'));
 
     const { result } = renderHook(() =>
-      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      usePresence({ roomId: 'room-1', userId: 'user-1' })
     );
 
     await act(async () => {
@@ -182,7 +182,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should handle rapid status changes', async () => {
     const { result } = renderHook(() =>
-      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+      usePresence({ roomId: 'room-1', userId: 'user-1' })
     );
 
     await act(async () => {
@@ -199,7 +199,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should not connect when roomId is empty', () => {
     const { result } = renderHook(() =>
-      usePresence({ roomId: '', userId: 'user-1', username: 'testuser' })
+      usePresence({ roomId: '', userId: 'user-1' })
     );
 
     expect(result.current.presences).toEqual([]);
@@ -208,7 +208,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should update presence when isConnected changes to true', async () => {
     const { result, rerender } = renderHook(
-      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected }),
+      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', isConnected }),
       { initialProps: { isConnected: false } }
     );
 
@@ -229,7 +229,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should update presence to away when isConnected changes to false', async () => {
     const { result, rerender } = renderHook(
-      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected }),
+      ({ isConnected }) => usePresence({ roomId: 'room-1', userId: 'user-1', isConnected }),
       { initialProps: { isConnected: true } }
     );
 
@@ -251,7 +251,7 @@ describe('usePresence Edge Cases', () => {
 
   it('should handle isConnected undefined without calling update', async () => {
     const { result } = renderHook(() =>
-      usePresence({ roomId: 'room-1', userId: 'user-1', username: 'testuser', isConnected: undefined })
+      usePresence({ roomId: 'room-1', userId: 'user-1', isConnected: undefined })
     );
 
     await act(async () => {

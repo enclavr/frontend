@@ -366,7 +366,7 @@ export default function RoomsPage() {
               </div>
             </div>
             <div>
-              <PresenceList roomId={currentRoom.id} userId={user?.id || ''} username={user?.username || ''} isVoiceConnected={isVoiceConnected} />
+              <PresenceList roomId={currentRoom.id} userId={user?.id || ''} isVoiceConnected={isVoiceConnected} />
             </div>
           </div>
         )}

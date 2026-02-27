@@ -482,3 +482,90 @@ describe('useChat Typing Indicators', () => {
     expect(result.current.typingUsers).toEqual([]);
   });
 });
+
+describe('useChat Message Queue', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should queue messages when WebSocket is not connected', async () => {
+    class DelayedWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
+      readyState = DelayedWebSocket.CONNECTING;
+      onopen: (() => void) | null = null;
+      onmessage: ((event: { data: string }) => void) | null = null;
+      onerror: ((error: unknown) => void) | null = null;
+      onclose: ((event: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
+
+      constructor(public url: string) {
+        setTimeout(() => {
+          this.readyState = DelayedWebSocket.OPEN;
+          this.onopen?.();
+        }, 100);
+      }
+
+      send(data: string) {}
+
+      close(code = 1000, reason = '') {
+        this.readyState = DelayedWebSocket.CLOSED;
+        this.onclose?.({ code, reason, wasClean: true });
+      }
+    }
+
+    vi.stubGlobal('WebSocket', DelayedWebSocket);
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('Message while connecting');
+    });
+
+    expect(result.current.pendingCount).toBe(1);
+  });
+
+  it('should handle disconnect gracefully', () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    act(() => {
+      result.current.reconnect();
+    });
+
+    expect(result.current.connectionState).toBe('connecting');
+  });
+
+  it('should handle fetchMessages error with non-Error value', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.getMessages).mockRejectedValueOnce(123);
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.fetchMessages();
+    });
+
+    expect(result.current.error).toBe('Failed to fetch messages');
+  });
+
+  it('should not send message when content is only spaces', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.sendMessage('     ');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+});

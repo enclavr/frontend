@@ -5,15 +5,13 @@ import { usePresence } from '@/hooks/usePresence';
 interface PresenceListProps {
   roomId: string;
   userId: string;
-  username: string;
   isVoiceConnected?: boolean;
 }
 
-export function PresenceList({ roomId, userId, username, isVoiceConnected }: PresenceListProps) {
+export function PresenceList({ roomId, userId, isVoiceConnected }: PresenceListProps) {
   const { presences, isLoading } = usePresence({
     roomId,
     userId,
-    username,
     isConnected: isVoiceConnected,
   });
 

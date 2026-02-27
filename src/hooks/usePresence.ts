@@ -7,11 +7,10 @@ import type { Presence } from '@/types';
 interface UsePresenceOptions {
   roomId: string;
   userId: string;
-  username: string;
   isConnected?: boolean;
 }
 
-export function usePresence({ roomId, userId, username, isConnected }: UsePresenceOptions) {
+export function usePresence({ roomId, userId, isConnected }: UsePresenceOptions) {
   const [presences, setPresences] = useState<Presence[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
