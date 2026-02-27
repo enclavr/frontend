@@ -122,19 +122,6 @@ describe('useAuthStore', () => {
       ).rejects.toThrow('Invalid credentials');
     });
 
-    it('should handle login failure gracefully', async () => {
-      const { api } = await import('@/lib/api');
-      vi.mocked(api.login).mockRejectedValueOnce(new Error('Invalid credentials'));
-
-      const { result } = renderHook(() => useAuthStore());
-
-      await expect(
-        act(async () => {
-          await result.current.login('testuser', 'wrongpassword');
-        })
-      ).rejects.toThrow('Invalid credentials');
-    });
-
     it('should handle non-Error exception on login', async () => {
       const { api } = await import('@/lib/api');
       vi.mocked(api.login).mockRejectedValueOnce('Network failed');

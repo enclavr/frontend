@@ -344,5 +344,135 @@ describe('useDM Hook - Edge Cases', () => {
 
       expect(api.sendDM).toHaveBeenCalledTimes(2);
     });
+
+    it('should handle Unicode characters in message', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'Hello 世界 🌍',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', 'Hello 世界 🌍');
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', 'Hello 世界 🌍');
+    });
+
+    it('should handle very long message content', async () => {
+      const longMessage = 'a'.repeat(10000);
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: longMessage,
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', longMessage);
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', longMessage);
+    });
+
+    it('should handle message with emoji', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: '🎉🥳🍾 Happy Birthday! 🎂',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', '🎉🥳🍾 Happy Birthday! 🎂');
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', '🎉🥳🍾 Happy Birthday! 🎂');
+    });
+
+    it('should handle newlines in message content', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockResolvedValueOnce({
+        id: 'msg-1',
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        content: 'Line 1\nLine 2\nLine 3',
+        is_edited: false,
+        is_deleted: false,
+        created_at: '2026-02-26T10:00:00Z',
+        updated_at: '2026-02-26T10:00:00Z',
+        sender: {} as never,
+        receiver: {} as never,
+      });
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.sendMessage('user-2', 'Line 1\nLine 2\nLine 3');
+      });
+
+      expect(api.sendDM).toHaveBeenCalledWith('user-2', 'Line 1\nLine 2\nLine 3');
+    });
+  });
+
+  describe('conversations edge cases', () => {
+    it('should handle conversation with no unread messages', async () => {
+      const { api } = await import('@/lib/api');
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      await act(async () => {
+        await result.current.fetchConversations();
+      });
+
+      expect(result.current.conversations).toEqual([]);
+    });
+
+    it('should handle empty receiver id', async () => {
+      const { api } = await import('@/lib/api');
+      vi.mocked(api.sendDM).mockRejectedValueOnce(new Error('Receiver ID required'));
+      
+      const { result } = renderHook(() => useDM({ userId: 'user-1' }));
+
+      let errorCaught = false;
+      try {
+        await act(async () => {
+          await result.current.sendMessage('', 'Hello');
+        });
+      } catch {
+        errorCaught = true;
+      }
+
+      expect(errorCaught).toBe(true);
+      expect(api.sendDM).toHaveBeenCalledWith('', 'Hello');
+    });
   });
 });
