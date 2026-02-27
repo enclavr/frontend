@@ -837,5 +837,38 @@ describe('useRoomStore', () => {
 
       expect(result.current.isAuthenticated).toBe(true);
     });
+
+    it('should handle logout during pending login', async () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      act(() => {
+        result.current.logout();
+      });
+
+      expect(result.current.user).toBe(null);
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('should handle repeated logout calls', () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      act(() => {
+        result.current.logout();
+        result.current.logout();
+        result.current.logout();
+      });
+
+      expect(result.current.user).toBe(null);
+    });
+
+    it('should handle clearError when no error exists', () => {
+      const { result } = renderHook(() => useAuthStore());
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.error).toBe(null);
+    });
   });
 });
