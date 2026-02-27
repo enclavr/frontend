@@ -261,4 +261,99 @@ describe('usePresence Edge Cases', () => {
     const { api } = await import('@/lib/api');
     expect(api.updatePresence).toHaveBeenCalledWith('online', 'room-1');
   });
+
+  it('should handle empty userId', async () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: '' })
+    );
+
+    expect(result.current.presences).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('should handle multiple rapid fetchPresence calls', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.getRoomPresence)
+      .mockClear()
+      .mockResolvedValueOnce([{ user_id: 'user-1', username: 'User 1', status: 'online', room_id: 'room-1', last_seen: '2026-02-26T10:00:00Z' }])
+      .mockResolvedValueOnce([{ user_id: 'user-1', username: 'User 1', status: 'away', room_id: 'room-1', last_seen: '2026-02-26T10:05:00Z' }])
+      .mockResolvedValueOnce([{ user_id: 'user-1', username: 'User 1', status: 'busy', room_id: 'room-1', last_seen: '2026-02-26T10:10:00Z' }]);
+
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1' })
+    );
+
+    await act(async () => {
+      await result.current.fetchPresence();
+      await result.current.fetchPresence();
+    });
+
+    expect(api.getRoomPresence).toHaveBeenCalled();
+  });
+
+  it('should handle presence data with null values', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.getRoomPresence).mockResolvedValue([
+      { user_id: 'user-1', username: 'User 1', status: 'online', room_id: 'room-1', last_seen: null as unknown as string }
+    ]);
+
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1' })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    expect(result.current.presences).toHaveLength(1);
+    expect(result.current.presences[0].last_seen).toBeNull();
+  });
+
+  it('should handle large presence list', async () => {
+    const { api } = await import('@/lib/api');
+    const largePresenceList = Array.from({ length: 100 }, (_, i) => ({
+      user_id: `user-${i}`,
+      username: `User ${i}`,
+      status: 'online' as const,
+      room_id: 'room-1',
+      last_seen: '2026-02-26T10:00:00Z'
+    }));
+    vi.mocked(api.getRoomPresence).mockResolvedValue(largePresenceList);
+
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-1' })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+
+    expect(result.current.presences).toHaveLength(100);
+  });
+
+  it('should handle presence update with special characters in userId', async () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-1', userId: 'user-with-special-chars_123' })
+    );
+
+    await act(async () => {
+      await result.current.updatePresence('online');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.updatePresence).toHaveBeenCalledWith('online', 'room-1');
+  });
+
+  it('should handle roomId with special characters', async () => {
+    const { result } = renderHook(() =>
+      usePresence({ roomId: 'room-with-dashes_123', userId: 'user-1' })
+    );
+
+    await act(async () => {
+      await result.current.updatePresence('online');
+    });
+
+    const { api } = await import('@/lib/api');
+    expect(api.updatePresence).toHaveBeenCalledWith('online', 'room-with-dashes_123');
+  });
 });

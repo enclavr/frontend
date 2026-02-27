@@ -13,6 +13,7 @@ const eslintConfig = [
       ".next/**",
       "dist/**",
       "build/**",
+      "coverage/**",
     ],
   },
   {

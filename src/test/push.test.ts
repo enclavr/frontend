@@ -221,4 +221,127 @@ describe('PushService Edge Cases', () => {
     expect(result).toBeDefined();
     vi.unstubAllGlobals();
   });
+
+  it('should handle HTTP 401 unauthorized response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: vi.fn().mockResolvedValue({ message: 'Unauthorized' })
+    }));
+    
+    const result = await pushService.getNotificationSettings();
+    
+    expect(result).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle HTTP 403 forbidden response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: vi.fn().mockResolvedValue({ message: 'Forbidden' })
+    }));
+    
+    const result = await pushService.updateNotificationSettings({ enable_push: false });
+    
+    expect(result).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle HTTP 404 not found response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: vi.fn().mockResolvedValue({ message: 'Not found' })
+    }));
+    
+    const result = await pushService.testNotification();
+    
+    expect(result).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle network timeout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Request timeout')));
+    
+    const result = await pushService.getSubscriptions();
+    
+    expect(result).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle empty response body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(null)
+    }));
+    
+    const result = await pushService.getNotificationSettings();
+    
+    expect(result).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle CORS error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    
+    const result = await pushService.testNotification();
+    
+    expect(result).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle quiet hours settings update', async () => {
+    const mockSettings: NotificationSettings = {
+      enable_push: true,
+      enable_dm_notifications: true,
+      enable_mention_notifications: true,
+      enable_room_notifications: true,
+      enable_sound: true,
+      notify_on_mobile: false,
+      quiet_hours_enabled: true,
+      quiet_hours_start: '22:00',
+      quiet_hours_end: '08:00'
+    };
+    
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockSettings)
+    }));
+    
+    const result = await pushService.updateNotificationSettings({ 
+      quiet_hours_enabled: true,
+      quiet_hours_start: '22:00',
+      quiet_hours_end: '08:00'
+    });
+    
+    expect(result?.quiet_hours_enabled).toBe(true);
+    expect(result?.quiet_hours_start).toBe('22:00');
+    expect(result?.quiet_hours_end).toBe('08:00');
+    vi.unstubAllGlobals();
+  });
+
+  it('should handle mobile notification settings', async () => {
+    const mockSettings: NotificationSettings = {
+      enable_push: true,
+      enable_dm_notifications: true,
+      enable_mention_notifications: true,
+      enable_room_notifications: true,
+      enable_sound: true,
+      notify_on_mobile: true,
+      quiet_hours_enabled: false,
+      quiet_hours_start: '',
+      quiet_hours_end: ''
+    };
+    
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockSettings)
+    }));
+    
+    const result = await pushService.updateNotificationSettings({ notify_on_mobile: true });
+    
+    expect(result?.notify_on_mobile).toBe(true);
+    vi.unstubAllGlobals();
+  });
 });
