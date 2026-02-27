@@ -361,3 +361,11 @@ export interface TypingData {
   user_id: string;
   username?: string;
 }
+
+export interface VoiceUser {
+  userId: string;
+  username: string;
+  isMuted: boolean;
+  isSpeaking: boolean;
+  isScreenSharing: boolean;
+}

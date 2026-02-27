@@ -1,5 +1,10 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
+import { BaseApiClient } from './api/base';
+import { AuthApi } from './api/auth';
+import { RoomApi } from './api/room';
+import { ChatApi } from './api/chat';
+import { DMApi } from './api/dm';
+import { PresenceApi } from './api/presence';
+import { AdminApi } from './api/admin';
 import type {
   AuthResponse,
   User,
@@ -34,291 +39,243 @@ import type {
   ReportStatus,
 } from '@/types';
 
-class ApiClient {
-  private token: string | null = null;
-
-  setToken(token: string | null) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('access_token', token);
-    } else {
-      localStorage.removeItem('access_token');
-    }
-  }
-
-  getToken(): string | null {
-    if (!this.token && typeof window !== 'undefined') {
-      this.token = localStorage.getItem('access_token');
-    }
-    return this.token;
-  }
-
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = this.getToken();
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
-
-    return response.json();
-  }
-
-  async register(username: string, email: string, password: string) {
+class ApiClient extends BaseApiClient {
+  async register(username: string, email: string, password: string): Promise<AuthResponse> {
     return this.request<AuthResponse>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, email, password }),
     });
   }
 
-  async login(username: string, password: string) {
+  async login(username: string, password: string): Promise<AuthResponse> {
     return this.request<AuthResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
     return this.request<AuthResponse>('/api/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
   }
 
-  async getMe() {
+  async getMe(): Promise<User> {
     return this.request<User>('/api/auth/me');
   }
 
-  async getRooms() {
+  async getRooms(): Promise<Room[]> {
     return this.request<Room[]>('/api/rooms');
   }
 
-  async getRoom(id: string) {
+  async getRoom(id: string): Promise<Room> {
     return this.request<Room>(`/api/room?id=${id}`);
   }
 
-  async createRoom(room: RoomCreate) {
+  async createRoom(room: RoomCreate): Promise<Room> {
     return this.request<Room>('/api/room/create', {
       method: 'POST',
       body: JSON.stringify(room),
     });
   }
 
-  async getCategories() {
+  async getCategories(): Promise<Category[]> {
     return this.request<Category[]>('/api/categories');
   }
 
-  async createCategory(name: string, sortOrder: number = 0) {
+  async createCategory(name: string, sortOrder: number = 0): Promise<Category> {
     return this.request<Category>('/api/category/create', {
       method: 'POST',
       body: JSON.stringify({ name, sort_order: sortOrder }),
     });
   }
 
-  async updateCategory(id: string, name: string, sortOrder: number) {
+  async updateCategory(id: string, name: string, sortOrder: number): Promise<Category> {
     return this.request<Category>('/api/category/update', {
       method: 'PUT',
       body: JSON.stringify({ id, name, sort_order: sortOrder }),
     });
   }
 
-  async deleteCategory(id: string) {
+  async deleteCategory(id: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/category/delete', {
       method: 'DELETE',
       body: JSON.stringify({ id }),
     });
   }
 
-  async joinRoom(roomId: string, password?: string) {
+  async joinRoom(roomId: string, password?: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/room/join', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, password }),
     });
   }
 
-  async leaveRoom(roomId: string) {
+  async leaveRoom(roomId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/room/leave', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId }),
     });
   }
 
-  async getICEConfig() {
+  async getICEConfig(): Promise<ICEConfig> {
     return this.request<ICEConfig>('/api/voice/ice');
   }
 
-  async sendMessage(roomId: string, content: string, type: MessageType = 'text') {
+  async sendMessage(roomId: string, content: string, type: MessageType = 'text'): Promise<Message> {
     return this.request<Message>('/api/messages', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, content, type }),
     });
   }
 
-  async getMessages(roomId: string, limit: number = 50) {
+  async getMessages(roomId: string, limit: number = 50): Promise<Message[]> {
     return this.request<Message[]>(`/api/messages?room_id=${roomId}&limit=${limit}`);
   }
 
-  async updateMessage(messageId: string, content: string) {
+  async updateMessage(messageId: string, content: string): Promise<Message> {
     return this.request<Message>(`/api/message/update?message_id=${messageId}`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
     });
   }
 
-  async deleteMessage(messageId: string) {
+  async deleteMessage(messageId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>(`/api/message/delete?message_id=${messageId}`, {
       method: 'DELETE',
     });
   }
 
-  async updatePresence(status: Presence['status'], roomId?: string) {
+  async updatePresence(status: Presence['status'], roomId?: string): Promise<Presence> {
     return this.request<Presence>('/api/presence', {
       method: 'POST',
       body: JSON.stringify({ status, room_id: roomId }),
     });
   }
 
-  async getRoomPresence(roomId: string) {
+  async getRoomPresence(roomId: string): Promise<Presence[]> {
     return this.request<Presence[]>(`/api/presence?room_id=${roomId}`);
   }
 
-  async sendDM(receiverId: string, content: string) {
+  async sendDM(receiverId: string, content: string): Promise<DirectMessage> {
     return this.request<DirectMessage>('/api/dm/send', {
       method: 'POST',
       body: JSON.stringify({ receiver_id: receiverId, content }),
     });
   }
 
-  async getConversations() {
+  async getConversations(): Promise<Conversation[]> {
     return this.request<Conversation[]>('/api/dm/conversations');
   }
 
-  async getDMMessages(userId: string) {
+  async getDMMessages(userId: string): Promise<DirectMessage[]> {
     return this.request<DirectMessage[]>(`/api/dm/messages?user_id=${userId}`);
   }
 
-  async updateDM(messageId: string, content: string) {
+  async updateDM(messageId: string, content: string): Promise<DirectMessage> {
     return this.request<DirectMessage>('/api/dm/update', {
       method: 'PUT',
       body: JSON.stringify({ message_id: messageId, content }),
     });
   }
 
-  async deleteDM(messageId: string) {
+  async deleteDM(messageId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/dm/delete', {
       method: 'DELETE',
       body: JSON.stringify({ message_id: messageId }),
     });
   }
 
-  async createInvite(roomId: string, maxUses: number = 0, expiresIn: number = 0) {
+  async createInvite(roomId: string, maxUses: number = 0, expiresIn: number = 0): Promise<Invite> {
     return this.request<Invite>('/api/invite/create', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, max_uses: maxUses, expires_in: expiresIn }),
     });
   }
 
-  async getInvites(roomId: string) {
+  async getInvites(roomId: string): Promise<Invite[]> {
     return this.request<Invite[]>(`/api/invites?room_id=${roomId}`);
   }
 
-  async useInvite(code: string, password?: string) {
+  async useInvite(code: string, password?: string): Promise<{ status: string; room_id: string; room_name: string }> {
     return this.request<{ status: string; room_id: string; room_name: string }>('/api/invite/use', {
       method: 'POST',
       body: JSON.stringify({ code, password }),
     });
   }
 
-  async revokeInvite(inviteId: string) {
+  async revokeInvite(inviteId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/invite/revoke', {
       method: 'POST',
       body: JSON.stringify({ invite_id: inviteId }),
     });
   }
 
-  async getRoles() {
+  async getRoles(): Promise<Role[]> {
     return this.request<Role[]>('/api/roles');
   }
 
-  async getRoomMembers(roomId: string) {
+  async getRoomMembers(roomId: string): Promise<RoomMember[]> {
     return this.request<RoomMember[]>(`/api/role/members?room_id=${roomId}`);
   }
 
-  async getUserRole(roomId: string) {
+  async getUserRole(roomId: string): Promise<Role> {
     return this.request<Role>(`/api/role/user?room_id=${roomId}`);
   }
 
-  async updateMemberRole(roomId: string, userId: string, role: string) {
+  async updateMemberRole(roomId: string, userId: string, role: string): Promise<{ status: string; role: string }> {
     return this.request<{ status: string; role: string }>('/api/role/update', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, user_id: userId, role }),
     });
   }
 
-  async kickUser(roomId: string, userId: string) {
+  async kickUser(roomId: string, userId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/role/kick', {
       method: 'POST',
       body: JSON.stringify({ room_id: roomId, user_id: userId }),
     });
   }
 
-  async createWebhook(roomId: string, url: string, events: string[]) {
+  async createWebhook(roomId: string, url: string, events: string[]): Promise<Webhook> {
     return this.request<Webhook>(`/api/webhook/create/${roomId}`, {
       method: 'POST',
       body: JSON.stringify({ url, events }),
     });
   }
 
-  async getWebhooks(roomId: string) {
+  async getWebhooks(roomId: string): Promise<Webhook[]> {
     return this.request<Webhook[]>(`/api/webhook/room/${roomId}`);
   }
 
-  async deleteWebhook(webhookId: string) {
+  async deleteWebhook(webhookId: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/api/webhook/${webhookId}`, {
       method: 'DELETE',
     });
   }
 
-  async toggleWebhook(webhookId: string) {
+  async toggleWebhook(webhookId: string): Promise<{ is_active: boolean }> {
     return this.request<{ is_active: boolean }>(`/api/webhook/toggle/${webhookId}`, {
       method: 'POST',
     });
   }
 
-  async getWebhookLogs(webhookId: string, limit: number = 50) {
+  async getWebhookLogs(webhookId: string, limit: number = 50): Promise<WebhookLog[]> {
     return this.request<WebhookLog[]>(`/api/webhook/logs/${webhookId}?limit=${limit}`);
   }
 
-  async searchMessages(query: string, limit: number = 50) {
+  async searchMessages(query: string, limit: number = 50): Promise<SearchResult[]> {
     return this.request<SearchResult[]>(`/api/messages/search?q=${encodeURIComponent(query)}&limit=${limit}`);
   }
 
-  async uploadFile(roomId: string, file: File): Promise<{
-    id: string;
-    file_name: string;
-    file_size: number;
-    content_type: string;
-    url: string;
-  }> {
+  async uploadFile(roomId: string, file: File): Promise<UploadedFile> {
     const token = this.getToken();
     const formData = new FormData();
     formData.append('file', file);
     formData.append('room_id', roomId);
 
-    const response = await fetch(`${API_URL}/api/files`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/files`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
@@ -487,3 +444,10 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+export { BaseApiClient } from './api/base';
+export { AuthApi, authApi } from './api/auth';
+export { RoomApi, roomApi } from './api/room';
+export { ChatApi, chatApi } from './api/chat';
+export { DMApi, dmApi } from './api/dm';
+export { PresenceApi, presenceApi } from './api/presence';
+export { AdminApi, adminApi } from './api/admin';

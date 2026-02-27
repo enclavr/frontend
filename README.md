@@ -86,3 +86,22 @@ When the codebase grows too large (>50 files in a module), refactor into smaller
 - Maintain clean boundaries between sub-modules
 - Push new sub-module repositories to GitHub and link them in parent repo
 - Update this README with new sub-modules
+
+## Architecture
+
+### Modular API Structure
+The API client is organized into modular sub-modules for better maintainability:
+- `src/lib/api/base.ts` - Base API client with authentication
+- `src/lib/api/auth.ts` - Authentication endpoints
+- `src/lib/api/room.ts` - Room management endpoints
+- `src/lib/api/chat.ts` - Chat and messaging endpoints
+- `src/lib/api/dm.ts` - Direct messaging endpoints
+- `src/lib/api/presence.ts` - Presence endpoints
+- `src/lib/api/admin.ts` - Admin endpoints (webhooks, analytics, bans, reports)
+
+### WebRTC Utilities
+WebRTC functionality is split into dedicated modules:
+- `src/lib/webrtc/types.ts` - TypeScript interfaces
+- `src/lib/webrtc/ice.ts` - ICE server configuration
+- `src/lib/webrtc/peer.ts` - Peer connection utilities
+- `src/hooks/useWebRTC.ts` - Main WebRTC hook

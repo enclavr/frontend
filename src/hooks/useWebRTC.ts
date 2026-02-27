@@ -1,56 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ICEConfig } from '@/types';
-
-export interface PeerConnection {
-  peerId: string;
-  userId: string;
-  connection: RTCPeerConnection;
-  stream?: MediaStream;
-}
-
-export interface VoiceUser {
-  userId: string;
-  username: string;
-  isMuted: boolean;
-  isSpeaking: boolean;
-  isScreenSharing: boolean;
-}
-
-interface UseWebRTCOptions {
-  roomId: string;
-  userId: string;
-  username: string;
-  onUserJoined?: (user: VoiceUser) => void;
-  onUserLeft?: (userId: string) => void;
-  onUserMuted?: (userId: string, isMuted: boolean) => void;
-}
-
-const DEFAULT_ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
-
-async function fetchICEServers(): Promise<RTCIceServer[]> {
-  try {
-    const apiUrl = typeof window !== 'undefined' 
-      ? `${window.location.protocol}//${window.location.host}/api`
-      : '/api';
-    const response = await fetch(`${apiUrl}/voice/ice`);
-    if (response.ok) {
-      const config: ICEConfig = await response.json();
-      return config.ice_servers.map((server) => ({
-        urls: server.urls,
-        username: server.username,
-        credential: server.credential,
-      }));
-    }
-  } catch (error) {
-    console.warn('Failed to fetch ICE config, using defaults:', error);
-  }
-  return DEFAULT_ICE_SERVERS;
-}
+export type { VoiceUser } from '@/types';
+import type { VoiceUser as VoiceUserType } from '@/types';
+import {
+  DEFAULT_ICE_SERVERS,
+  fetchICEServers,
+  createPeerConnection,
+  setupPeerConnectionHandlers,
+  createOffer,
+  createAnswer,
+  setRemoteDescription,
+  addIceCandidate,
+  closePeerConnection,
+} from '@/lib/webrtc';
+import type { UseWebRTCOptions, PeerConnection } from '@/lib/webrtc/types';
 
 export function useWebRTC({
   roomId,
@@ -67,7 +31,7 @@ export function useWebRTC({
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
-  const [voiceUsers, setVoiceUsers] = useState<VoiceUser[]>([]);
+  const [voiceUsers, setVoiceUsers] = useState<VoiceUserType[]>([]);
   const [iceServers, setIceServers] = useState<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -84,117 +48,151 @@ export function useWebRTC({
     fetchICEServers().then(setIceServers);
   }, []);
 
-  const createPeerConnection = useCallback(
-    (peerId: string, initiator: boolean): RTCPeerConnection => {
-      const pc = new RTCPeerConnection({ iceServers });
+  const createPeerConnectionWithHandlers = useCallback(
+    (targetUserId: string, initiator: boolean): PeerConnection => {
+      const peer = createPeerConnection(targetUserId, userId, iceServers);
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(
-            JSON.stringify({
-              type: 'voice-ice-candidate',
-              targetUserId: peerId,
-              candidate: event.candidate,
-            })
-          );
-        }
-      };
-
-      pc.ontrack = (event) => {
-        setPeers((prev) => {
-          const peer = prev.get(peerId);
-          if (peer) {
-            peer.stream = event.streams[0];
-          } else {
-            prev.set(peerId, {
-              peerId,
-              userId: peerId,
-              connection: pc,
-              stream: event.streams[0],
-            });
+      setupPeerConnectionHandlers(
+        peer.connection,
+        targetUserId,
+        (candidate) => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(
+              JSON.stringify({
+                type: 'voice-ice-candidate',
+                targetUserId,
+                candidate,
+              })
+            );
           }
-          return new Map(prev);
-        });
-      };
+        },
+        (stream) => {
+          setPeers((prev) => {
+            const existing = prev.get(targetUserId);
+            if (existing) {
+              existing.stream = stream;
+            }
+            return new Map(prev);
+          });
+        }
+      );
 
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => {
-          pc.addTrack(track, localStreamRef.current!);
-        });
-      }
-
-      return pc;
+      return peer;
     },
-    [iceServers]
+    [iceServers, userId]
   );
 
   const handleOffer = useCallback(
-    async (peerId: string, offer: RTCSessionDescriptionInit) => {
-      const pc = createPeerConnection(peerId, false);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    async (fromUserId: string, offer: RTCSessionDescriptionInit): Promise<void> => {
+      const peer = peersRef.current.get(fromUserId);
+      if (!peer) return;
+
+      await setRemoteDescription(peer.connection, offer);
+      const answer = await createAnswer(peer.connection);
 
       wsRef.current?.send(
         JSON.stringify({
           type: 'voice-answer',
-          targetUserId: peerId,
+          targetUserId: fromUserId,
           answer,
         })
       );
     },
-    [createPeerConnection]
+    []
   );
 
   const handleAnswer = useCallback(
-    async (peerId: string, answer: RTCSessionDescriptionInit) => {
-      const peer = peersRef.current.get(peerId);
-      if (peer) {
-        await peer.connection.setRemoteDescription(new RTCSessionDescription(answer));
-      }
+    async (fromUserId: string, answer: RTCSessionDescriptionInit): Promise<void> => {
+      const peer = peersRef.current.get(fromUserId);
+      if (!peer) return;
+
+      await setRemoteDescription(peer.connection, answer);
     },
     []
   );
 
   const handleIceCandidate = useCallback(
-    async (peerId: string, candidate: RTCIceCandidateInit) => {
-      const peer = peersRef.current.get(peerId);
-      if (peer) {
-        await peer.connection.addIceCandidate(new RTCIceCandidate(candidate));
-      }
+    async (fromUserId: string, candidate: RTCIceCandidateInit): Promise<void> => {
+      const peer = peersRef.current.get(fromUserId);
+      if (!peer) return;
+
+      await addIceCandidate(peer.connection, candidate);
     },
     []
   );
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (): Promise<void> => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       setLocalStream(stream);
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/voice?room_id=${roomId}`;
+      const wsProtocol =
+        typeof window !== 'undefined' && window.location.protocol === 'https:'
+          ? 'wss:'
+          : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/voice?room_id=${roomId}&user_id=${userId}&username=${encodeURIComponent(username)}`;
+
       const ws = new WebSocket(wsUrl);
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         setIsConnected(true);
+
+        peersRef.current.forEach(async (peer) => {
+          const offer = await createOffer(peer.connection);
+          ws.send(
+            JSON.stringify({
+              type: 'voice-offer',
+              targetUserId: peer.userId,
+              offer,
+            })
+          );
+        });
       };
 
       ws.onmessage = async (event) => {
         const data = JSON.parse(event.data);
 
         switch (data.type) {
-          case 'voice-offer':
-            await handleOffer(data.userId, data.offer);
+          case 'voice-offer': {
+            const newPeer = createPeerConnectionWithHandlers(data.userId, false);
+            await setRemoteDescription(newPeer.connection, data.offer);
+            const answer = await createAnswer(newPeer.connection);
+
+            setPeers((prev) => {
+              prev.set(data.userId, newPeer);
+              peersRef.current = new Map(prev);
+              return new Map(prev);
+            });
+
+            ws.send(
+              JSON.stringify({
+                type: 'voice-answer',
+                targetUserId: data.userId,
+                answer,
+              })
+            );
+
+            onUserJoined?.({
+              userId: data.userId,
+              username: data.username,
+              isMuted: false,
+              isSpeaking: false,
+              isScreenSharing: false,
+            });
+
+            setVoiceUsers((prev) => [
+              ...prev,
+              {
+                userId: data.userId,
+                username: data.username,
+                isMuted: false,
+                isSpeaking: false,
+                isScreenSharing: false,
+              },
+            ]);
             break;
+          }
           case 'voice-answer':
             await handleAnswer(data.userId, data.answer);
             break;
@@ -202,16 +200,11 @@ export function useWebRTC({
             await handleIceCandidate(data.userId, data.candidate);
             break;
           case 'user-joined': {
-            const newPeer = createPeerConnection(data.userId, true);
-            const offer = await newPeer.createOffer();
-            await newPeer.setLocalDescription(offer);
+            const newPeer = createPeerConnectionWithHandlers(data.userId, true);
+            const offer = await createOffer(newPeer.connection);
 
             setPeers((prev) => {
-              prev.set(data.userId, {
-                peerId: data.userId,
-                userId: data.userId,
-                connection: newPeer,
-              });
+              prev.set(data.userId, newPeer);
               peersRef.current = new Map(prev);
               return new Map(prev);
             });
@@ -247,7 +240,7 @@ export function useWebRTC({
           case 'user-left': {
             const peer = peersRef.current.get(data.userId);
             if (peer) {
-              peer.connection.close();
+              closePeerConnection(peer.connection);
               peersRef.current.delete(data.userId);
               setPeers(new Map(peersRef.current));
             }
@@ -304,7 +297,7 @@ export function useWebRTC({
     } catch (error) {
       console.error('Failed to initialize WebRTC:', error);
     }
-  }, [roomId, userId, username, createPeerConnection, handleOffer, handleAnswer, handleIceCandidate, onUserJoined, onUserLeft, onUserMuted]);
+  }, [roomId, userId, username, createPeerConnectionWithHandlers, handleOffer, handleAnswer, handleIceCandidate, onUserJoined, onUserLeft, onUserMuted]);
 
   const disconnect = useCallback(() => {
     if (localStreamRef.current) {
@@ -319,7 +312,7 @@ export function useWebRTC({
       setScreenStream(null);
     }
 
-    peersRef.current.forEach((peer) => peer.connection.close());
+    peersRef.current.forEach((peer) => closePeerConnection(peer.connection));
     peersRef.current = new Map();
     setPeers(new Map());
     setVoiceUsers([]);
@@ -356,7 +349,7 @@ export function useWebRTC({
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
-        
+
         wsRef.current?.send(
           JSON.stringify({
             type: videoTrack.enabled ? 'video-enable' : 'video-disable',
@@ -371,7 +364,7 @@ export function useWebRTC({
         });
         const videoTrack = stream.getVideoTracks()[0];
         videoTrack.enabled = true;
-        
+
         localStreamRef.current = stream;
         setLocalStream(stream);
         setIsVideoEnabled(true);
@@ -400,7 +393,7 @@ export function useWebRTC({
 
       peersRef.current.forEach((peer) => {
         const senders = peer.connection.getSenders();
-        const videoSender = senders.find(s => s.track?.kind === 'video');
+        const videoSender = senders.find((s) => s.track?.kind === 'video');
         if (videoSender) {
           const currentStream = localStreamRef.current;
           if (currentStream) {
