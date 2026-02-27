@@ -57,6 +57,18 @@ describe('API Module', () => {
       api.setToken(null);
       expect(api.getToken()).toBeNull();
     });
+
+    it('should handle token with special characters', () => {
+      const specialToken = 'token/with+special=chars&more';
+      api.setToken(specialToken);
+      expect(api.getToken()).toBe(specialToken);
+    });
+
+    it('should handle very long token', () => {
+      const longToken = 'a'.repeat(10000);
+      api.setToken(longToken);
+      expect(api.getToken()).toBe(longToken);
+    });
   });
 
   describe('API Error Handling', () => {
@@ -85,6 +97,67 @@ describe('API Module', () => {
 
       await expect(api.getRooms()).rejects.toThrow();
     });
+
+    it('should handle 401 unauthorized error', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: vi.fn().mockResolvedValue({ message: 'Unauthorized' }),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow('Unauthorized');
+    });
+
+    it('should handle 403 forbidden error', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: vi.fn().mockResolvedValue({ message: 'Forbidden' }),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow('Forbidden');
+    });
+
+    it('should handle 404 not found error', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: vi.fn().mockResolvedValue({ message: 'Not found' }),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow('Not found');
+    });
+
+    it('should handle 429 rate limit error', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: vi.fn().mockResolvedValue({ message: 'Too many requests' }),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow('Too many requests');
+    });
+
+    it('should handle 500 internal server error', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockResolvedValue({ message: 'Internal server error' }),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow('Internal server error');
+    });
+
+    it('should handle non-JSON response', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockRejectedValue(new Error('Invalid JSON')),
+        text: vi.fn().mockResolvedValue('Internal Server Error'),
+      } as unknown as Response);
+
+      await expect(api.getRooms()).rejects.toThrow();
+    });
   });
 
   describe('API Success Cases', () => {
@@ -97,6 +170,71 @@ describe('API Module', () => {
 
       const rooms = await api.getRooms();
       expect(rooms).toEqual(mockRooms);
+    });
+
+    it('should handle empty response body', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(null),
+      } as unknown as Response);
+
+      const result = await api.getRooms();
+      expect(result).toBeNull();
+    });
+
+    it('should handle empty array response', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue([]),
+      } as unknown as Response);
+
+      const rooms = await api.getRooms();
+      expect(rooms).toEqual([]);
+    });
+  });
+
+  describe('API Edge Cases', () => {
+    it('should handle concurrent API calls', async () => {
+      const mockRooms = [{ id: '1', name: 'Room 1' }];
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockRooms),
+      } as unknown as Response);
+
+      const [rooms1, rooms2] = await Promise.all([
+        api.getRooms(),
+        api.getRooms(),
+      ]);
+
+      expect(rooms1).toEqual(rooms2);
+    });
+
+    it('should include token in authorization header', async () => {
+      api.setToken('test-token');
+      
+      const mockRooms = [{ id: '1', name: 'Room 1' }];
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue(mockRooms),
+      } as unknown as Response);
+
+      await api.getRooms();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        })
+      );
+    });
+
+    it('should handle request timeout', async () => {
+      const controller = new AbortController();
+      vi.mocked(fetch).mockRejectedValue(new Error('AbortError'));
+      
+      await expect(api.getRooms()).rejects.toThrow();
     });
   });
 });

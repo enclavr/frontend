@@ -1,3 +1,5 @@
+import type { VoiceUser as VoiceUserType } from '@/types';
+
 export interface PeerConnection {
   peerId: string;
   userId: string;
@@ -5,19 +7,11 @@ export interface PeerConnection {
   stream?: MediaStream;
 }
 
-export interface VoiceUser {
-  userId: string;
-  username: string;
-  isMuted: boolean;
-  isSpeaking: boolean;
-  isScreenSharing: boolean;
-}
-
 export interface UseWebRTCOptions {
   roomId: string;
   userId: string;
   username: string;
-  onUserJoined?: (user: VoiceUser) => void;
+  onUserJoined?: (user: VoiceUserType) => void;
   onUserLeft?: (userId: string) => void;
   onUserMuted?: (userId: string, isMuted: boolean) => void;
 }
