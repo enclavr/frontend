@@ -131,7 +131,7 @@ export function useWebRTC({
         typeof window !== 'undefined' && window.location.protocol === 'https:'
           ? 'wss:'
           : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/api/voice?room_id=${roomId}&user_id=${userId}&username=${encodeURIComponent(username)}`;
+      const wsUrl = `${wsProtocol}//${typeof window !== 'undefined' ? window.location.host : ''}/api/voice?room_id=${roomId}&user_id=${userId}&username=${encodeURIComponent(username)}`;
 
       const ws = new WebSocket(wsUrl);
 

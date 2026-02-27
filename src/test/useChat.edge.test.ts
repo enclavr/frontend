@@ -625,4 +625,31 @@ describe('useChat Message Queue', () => {
     const { api } = await import('@/lib/api');
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
+
+  it('should handle fetchMessages when roomId is empty', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: '', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.fetchMessages();
+    });
+
+    expect(result.current.messages).toEqual([]);
+  });
+
+  it('should handle fetchMessages error with non-Error value', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.getMessages).mockRejectedValueOnce(123);
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.fetchMessages();
+    });
+
+    expect(result.current.error).toBe('Failed to fetch messages');
+  });
 });

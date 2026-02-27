@@ -43,7 +43,7 @@ export function usePresence({ roomId, userId, isConnected }: UsePresenceOptions)
   }, [fetchPresence]);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || typeof window === 'undefined') return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/ws?room_id=${roomId}`;
