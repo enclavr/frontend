@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData, NotificationSettings, PushSubscription, ServerSettings } from '@/types';
+import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData, NotificationSettings, PushSubscription, ServerSettings, AuthResponse, ICEConfig, ICEServer, TypingUser } from '@/types';
 
 describe('Type Definitions', () => {
   describe('User type', () => {
@@ -1470,6 +1470,106 @@ describe('Type Definitions', () => {
       };
       
       expect(new Date(presence.last_seen).getFullYear()).toBe(2030);
+    });
+  });
+
+  describe('AuthResponse type', () => {
+    it('should have all required fields', () => {
+      const response: AuthResponse = {
+        access_token: 'token-123',
+        refresh_token: 'refresh-123',
+        expires_in: 3600,
+        user: {
+          id: 'user-1',
+          username: 'testuser',
+          email: 'test@example.com',
+          display_name: 'Test User',
+          avatar_url: '',
+          is_admin: false,
+        },
+      };
+      
+      expect(response.access_token).toBe('token-123');
+      expect(response.expires_in).toBe(3600);
+    });
+
+    it('should handle auth response with minimal user data', () => {
+      const response: AuthResponse = {
+        access_token: 'token',
+        refresh_token: 'refresh',
+        expires_in: 7200,
+        user: {
+          id: 'user-1',
+          username: 'minuser',
+          email: 'min@example.com',
+          display_name: '',
+          avatar_url: '',
+          is_admin: false,
+        },
+      };
+      
+      expect(response.user.display_name).toBe('');
+    });
+  });
+
+  describe('ICEConfig type', () => {
+    it('should have all required fields', () => {
+      const config: ICEConfig = {
+        ice_servers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'], username: 'user', credential: 'pass' },
+        ],
+      };
+      
+      expect(config.ice_servers).toHaveLength(2);
+    });
+
+    it('should handle ICE server with single URL string', () => {
+      const server: ICEServer = {
+        urls: 'stun:stun.l.google.com:19302',
+      };
+      
+      expect(typeof server.urls).toBe('string');
+    });
+
+    it('should handle ICE server with multiple URL array', () => {
+      const server: ICEServer = {
+        urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+      };
+      
+      expect(Array.isArray(server.urls)).toBe(true);
+      expect(server.urls).toHaveLength(2);
+    });
+
+    it('should handle ICE server with credentials', () => {
+      const server: ICEServer = {
+        urls: 'stun:example.com:3478',
+        username: 'user123',
+        credential: 'password123',
+      };
+      
+      expect(server.username).toBe('user123');
+      expect(server.credential).toBe('password123');
+    });
+  });
+
+  describe('TypingUser type', () => {
+    it('should have required fields', () => {
+      const typing: TypingUser = {
+        user_id: 'user-1',
+        username: 'testuser',
+      };
+      
+      expect(typing.user_id).toBe('user-1');
+    });
+
+    it('should handle typing user with special characters', () => {
+      const typing: TypingUser = {
+        user_id: 'user-test_123',
+        username: 'User Name @#$%',
+      };
+      
+      expect(typing.username).toBe('User Name @#$%');
     });
   });
 });
