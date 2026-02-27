@@ -297,7 +297,7 @@ export function useWebRTC({
     } catch (error) {
       console.error('Failed to initialize WebRTC:', error);
     }
-  }, [roomId, userId, username, createPeerConnectionWithHandlers, handleOffer, handleAnswer, handleIceCandidate, onUserJoined, onUserLeft, onUserMuted]);
+  }, [roomId, userId, username, createPeerConnectionWithHandlers, onUserJoined, onUserLeft, onUserMuted]);
 
   const disconnect = useCallback(() => {
     if (localStreamRef.current) {

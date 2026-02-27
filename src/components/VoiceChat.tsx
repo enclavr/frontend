@@ -65,7 +65,7 @@ export function VoiceChat({ roomId, userId, username, onConnectionChange }: Voic
     return () => {
       disconnect();
     };
-  }, [roomId]);
+  }, [roomId, connect, disconnect]);
 
   useEffect(() => {
     peers.forEach((peer) => {
