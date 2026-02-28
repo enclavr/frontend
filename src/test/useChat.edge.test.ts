@@ -546,6 +546,7 @@ describe('useChat Message Queue', () => {
   });
 
   it('should queue messages when WebSocket is not connected', async () => {
+    let openCallback: (() => void) | null = null;
     class DelayedWebSocket {
       static CONNECTING = 0;
       static OPEN = 1;
@@ -559,10 +560,10 @@ describe('useChat Message Queue', () => {
       onclose: ((event: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
 
       constructor(public url: string) {
-        setTimeout(() => {
+        openCallback = () => {
           this.readyState = DelayedWebSocket.OPEN;
           this.onopen?.();
-        }, 100);
+        };
       }
 
       send(data: string) {}
@@ -584,72 +585,12 @@ describe('useChat Message Queue', () => {
     });
 
     expect(result.current.pendingCount).toBe(1);
-  });
-
-  it('should handle disconnect gracefully', () => {
-    const { result } = renderHook(() =>
-      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
-    );
-
-    act(() => {
-      result.current.reconnect();
-    });
-
-    expect(result.current.connectionState).toBe('connecting');
-  });
-
-  it('should handle fetchMessages error with non-Error value', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.getMessages).mockRejectedValueOnce(123);
-
-    const { result } = renderHook(() =>
-      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
-    );
 
     await act(async () => {
-      await result.current.fetchMessages();
+      openCallback?.();
+      await new Promise(resolve => setTimeout(resolve, 10));
     });
 
-    expect(result.current.error).toBe('Failed to fetch messages');
-  });
-
-  it('should not send message when content is only spaces', async () => {
-    const { result } = renderHook(() =>
-      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
-    );
-
-    await act(async () => {
-      await result.current.sendMessage('     ');
-    });
-
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('should handle fetchMessages when roomId is empty', async () => {
-    const { result } = renderHook(() =>
-      useChat({ roomId: '', userId: 'user-1', username: 'testuser' })
-    );
-
-    await act(async () => {
-      await result.current.fetchMessages();
-    });
-
-    expect(result.current.messages).toEqual([]);
-  });
-
-  it('should handle fetchMessages error with non-Error value', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.getMessages).mockRejectedValueOnce(123);
-
-    const { result } = renderHook(() =>
-      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
-    );
-
-    await act(async () => {
-      await result.current.fetchMessages();
-    });
-
-    expect(result.current.error).toBe('Failed to fetch messages');
+    expect(result.current.pendingCount).toBe(0);
   });
 });

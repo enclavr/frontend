@@ -1,26 +1,17 @@
-# Frontend Agent
+# Enclavr Frontend - Agent Instructions
 
-## Role
-Manages the Next.js frontend for Enclavr voice chat platform.
+## Build & Test
 
-## Tasks
-- Implement UI components
-- Create pages and routing
-- Handle state management
-- Style components
+```bash
+bun install          # Install dependencies
+bun run dev          # Start dev server
+bun run build        # Build for production
+bun run lint         # Run ESLint
+bun run test:run     # Run unit tests (Vitest)
+bun run test:e2e     # Run E2E tests (Playwright)
+```
 
-## Package Manager
-- **ALWAYS use bun** - NEVER use npm, yarn, or pnpm
-- Commands: `bun install`, `bun run dev`, `bun run build`, `bun run lint`
-- If you accidentally use npm, delete node_modules and lock file, then run `bun install`
-
-## Guidelines
-- Use TypeScript
-- Follow React best practices
-- Use Tailwind CSS for styling
-- Use Zustand for state management
-
-## Coding Style (Strict)
+## Code Style
 
 ### TypeScript
 - **Always** use explicit types for function parameters and return types
@@ -58,62 +49,52 @@ Manages the Next.js frontend for Enclavr voice chat platform.
 - Group related classes (layout → spacing → visual → state)
 - Use `dark:` prefix for dark mode variants
 
-### Naming
+### Naming Conventions
 - Use camelCase for variables, functions, const
 - Use PascalCase for components, types, interfaces
 - Use SCREAMING_SNAKE_CASE for constants
 - Prefix boolean variables with `is`, `has`, `should`, `can`
 
-### Code Organization
-- Imports order: external → internal → types → styles
-- Export components as named exports
-- Use barrel files (`index.ts`) for clean imports
-- Keep files under 300 lines
+## Testing
 
-### Error Handling
+### Unit/Component Testing (Vitest)
+- Use **Vitest** as the test runner
+- Use **@testing-library/react** for component testing
+- **NEVER mock data** - use actual API responses and real data
+- Test with real server responses using MSW (Mock Service Worker) only for network errors
+- Test critical user flows with real data
+- Place tests next to components (e.g., `Button.tsx` and `Button.test.tsx`)
+
+### E2E Testing (Playwright)
+- Use **Playwright** for end-to-end testing
+- Place E2E tests in `e2e/` directory
+- Use `bun run test:e2e` to run E2E tests
+- Test critical user journeys (login, navigation, voice chat connection)
+- Use actual data, not mocked data
+
+## Directory Structure
+
+```
+src/
+├── app/           # Next.js App Router pages
+├── components/    # React components
+├── hooks/         # Custom React hooks
+├── lib/           # Core utilities (API, stores, webrtc)
+├── types/         # TypeScript interfaces
+└── test/          # Test utilities and edge case tests
+```
+
+## Environment
+
+- **ALWAYS use bun** - NEVER use npm, yarn, or pnpm
+- If you accidentally use npm, delete node_modules and lock file, then run `bun install`
+
+## Important Notes
+
+- Keep files under 300 lines
+- Use barrel files (`index.ts`) for clean imports
 - Always handle async errors with try/catch
 - Display user-friendly error messages
-- Log errors for debugging
-
-### Performance
 - Lazy load routes with `dynamic()` import
 - Use `next/image` for images
 - Use `next/font` for fonts
-- Avoid `useEffect` for computations - use `useMemo`
-
-### Testing
-
-#### Unit/Component Testing (Vitest)
-- Use **Vitest** as the test runner (Next.js recommended)
-- Use **@testing-library/react** for component testing
-- Use **@testing-library/jest-dom** for DOM assertions
-- **NEVER mock data** - use actual API responses and real data
-- Test with real server responses using MSW (Mock Service Worker) only for network errors, not happy paths
-- Test critical user flows with real data
-- Test edge cases with real edge case data
-- Use `bun run test` or `bun run test:run` to run tests
-- Place tests next to components (e.g., `Button.tsx` and `Button.test.tsx`)
-- Use `@testing-library/user-event` for user interactions
-
-#### E2E Testing (Playwright)
-- Use **Playwright** for end-to-end testing (official Next.js recommendation)
-- Use `@playwright/test` as the test framework
-- Place E2E tests in `e2e/` directory
-- Use `bun run test:e2e` to run E2E tests
-- Use `bun run test:e2e:ui` for interactive test debugging
-- Test critical user journeys (login, navigation, voice chat connection)
-- Use actual data, not mocked data
-- Configure `playwright.config.ts` to start dev server automatically
-
-## Conventions
-- Pages in `src/app/`
-- Components in `src/components/`
-- Hooks in `src/hooks/`
-- Utils in `src/lib/`
-
-## Refactoring
-- When codebase grows too large (>50 files in a module), refactor into smaller sub-modules
-- Create new npm packages for frontend modularity (use bun to init packages)
-- Maintain clean boundaries between sub-modules
-- Update AGENTS.md and README.md when adding new sub-modules
-- Push new sub-module repositories to GitHub and link them in parent repo

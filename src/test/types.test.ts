@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData, NotificationSettings, PushSubscription, ServerSettings, AuthResponse, ICEConfig, ICEServer, TypingUser } from '@/types';
+import type { User, Room, Message, RoomCreate, Presence, Conversation, DirectMessage, Reaction, Category, Invite, ReactionWithCount, Role, RoomMember, Webhook, WebhookLog, SearchResult, UploadedFile, Ban, Report, ReportReason, ReportStatus, ServerEmoji, ServerSticker, SoundboardSound, AnalyticsOverview, DailyActivity, ChannelStats, HourlyStats, TopUser, CreateBanRequest, CreateReportRequest, TypingData, NotificationSettings, PushSubscription, ServerSettings, AuthResponse, ICEConfig, ICEServer, TypingUser, VoiceUser } from '@/types';
 
 describe('Type Definitions', () => {
   describe('User type', () => {
@@ -1570,6 +1570,112 @@ describe('Type Definitions', () => {
       };
       
       expect(typing.username).toBe('User Name @#$%');
+    });
+  });
+
+  describe('VoiceUser type', () => {
+    it('should have all required fields', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: 'testuser',
+        isMuted: false,
+        isSpeaking: false,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.userId).toBe('user-1');
+      expect(voiceUser.isMuted).toBe(false);
+      expect(voiceUser.isSpeaking).toBe(false);
+      expect(voiceUser.isScreenSharing).toBe(false);
+    });
+
+    it('should handle muted user', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: 'testuser',
+        isMuted: true,
+        isSpeaking: false,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.isMuted).toBe(true);
+    });
+
+    it('should handle speaking user', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: 'testuser',
+        isMuted: false,
+        isSpeaking: true,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.isSpeaking).toBe(true);
+    });
+
+    it('should handle screen sharing user', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: 'testuser',
+        isMuted: true,
+        isSpeaking: true,
+        isScreenSharing: true,
+      };
+      
+      expect(voiceUser.isScreenSharing).toBe(true);
+    });
+
+    it('should handle voice user with empty username', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: '',
+        isMuted: false,
+        isSpeaking: false,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.username).toBe('');
+    });
+
+    it('should handle voice user with unicode username', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: '用户1',
+        isMuted: false,
+        isSpeaking: false,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.username).toBe('用户1');
+    });
+  });
+
+  describe('VoiceUser edge cases', () => {
+    it('should handle all voice states combined', () => {
+      const voiceUser: VoiceUser = {
+        userId: 'user-1',
+        username: 'testuser',
+        isMuted: true,
+        isSpeaking: true,
+        isScreenSharing: true,
+      };
+      
+      expect(voiceUser.isMuted).toBe(true);
+      expect(voiceUser.isSpeaking).toBe(true);
+      expect(voiceUser.isScreenSharing).toBe(true);
+    });
+
+    it('should handle user with very long userId', () => {
+      const longId = 'user-' + 'a'.repeat(100);
+      const voiceUser: VoiceUser = {
+        userId: longId,
+        username: 'testuser',
+        isMuted: false,
+        isSpeaking: false,
+        isScreenSharing: false,
+      };
+      
+      expect(voiceUser.userId.length).toBe(105);
     });
   });
 });
