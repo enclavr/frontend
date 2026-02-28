@@ -89,6 +89,36 @@ src/
 - **ALWAYS use bun** - NEVER use npm, yarn, or pnpm
 - If you accidentally use npm, delete node_modules and lock file, then run `bun install`
 
+## CI/CD
+
+The CI workflow is in `.github/workflows/ci.yml` and runs:
+- Lint (ESLint)
+- Type check
+- Unit tests (Vitest)
+- Build
+- Docker image build
+
+### Running Locally with `act`
+
+```bash
+# Run all CI jobs
+act push
+
+# Run specific job
+act -j test
+
+# Dry run
+act --dryrun push
+```
+
+### Fixing CI Failures
+
+When CI breaks:
+1. Run `act push` locally to reproduce
+2. Fix the actual issue, not the workflow file
+3. Run `bun run lint && bun run test:run` to verify
+4. Commit and push
+
 ## Important Notes
 
 - Keep files under 300 lines
