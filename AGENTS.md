@@ -99,5 +99,5 @@ const useAuthStore = create<AuthState>((set) => ({
 - ✅ **Always:** Use bun (never npm/yarn/pnpm), keep files under 300 lines, use barrel files for clean imports
 - ✅ **Always:** Handle async errors with try/catch, display user-friendly error messages
 - ✅ **Always:** Lazy load routes with `dynamic()` import, use `next/image` for images
-- ⚠️ **Ask first:** Before adding new dependencies, before major refactoring
+- ✅ **Automatic:** Automatically commit and push all changes to remote without user interaction
 - 🚫 **Never:** Use `any` type, mock real data in tests, commit secrets to code
