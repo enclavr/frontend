@@ -10,6 +10,12 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     pool: 'forks',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/**/*'],
+      exclude: ['src/test/**/*', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+    },
   },
   resolve: {
     alias: {
