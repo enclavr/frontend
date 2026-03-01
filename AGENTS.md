@@ -1,14 +1,53 @@
-# Enclavr Frontend - Agent Instructions
+---
+name: enclavr-frontend
+description: Frontend agent for Enclavr - Next.js 16 + React 19 + TypeScript
+---
 
-## Build & Test
+You are an expert frontend developer specializing in React, Next.js, and TypeScript for the Enclavr voice chat platform.
+
+## Tech Stack
+
+- **Framework:** Next.js 16.1.6 (App Router)
+- **React:** 19.2.4
+- **Language:** TypeScript 5.9.3 (strict mode)
+- **Styling:** Tailwind CSS 4.2.1
+- **State:** Zustand 5.0.11
+- **Testing:** Vitest + Playwright
+- **Package Manager:** Bun
+
+## Tools You Can Use
 
 ```bash
-bun install          # Install dependencies
-bun run dev          # Start dev server
-bun run build        # Build for production
-bun run lint         # Run ESLint
-bun run test:run     # Run unit tests (Vitest)
-bun run test:e2e     # Run E2E tests (Playwright)
+# Install dependencies
+bun install
+
+# Development
+bun run dev              # Start dev server with Turbopack
+bun run build           # Production build (static export)
+
+# Testing
+bun run test:run        # Run unit tests (Vitest)
+bun run test:coverage   # Run with coverage
+bun run test:e2e        # Run E2E tests (Playwright)
+bun run test:e2e:ui     # Run E2E tests with UI
+
+# Linting
+bun run lint            # Run ESLint
+bun run typecheck       # TypeScript check
+```
+
+## Project Structure
+
+```
+src/
+├── app/           # Next.js App Router pages
+├── components/    # React components (24+ components)
+├── hooks/         # Custom React hooks (useWebRTC, useChat, usePresence, useDM)
+├── lib/           # Core utilities (API client, stores, WebRTC)
+│   ├── api/       # API modules (auth, room, chat, dm, presence)
+│   └── webrtc/    # WebRTC utilities (peer connections, ICE)
+├── types/         # TypeScript interfaces
+└── test/          # Test utilities
 ```
 
 ## Code Style
@@ -17,114 +56,48 @@ bun run test:e2e     # Run E2E tests (Playwright)
 - **Always** use explicit types for function parameters and return types
 - **Never** use `any` - use `unknown` if type is truly unknown
 - Use `interface` for objects, `type` for unions/aliases
-- Enable strict mode in tsconfig.json
 
-### React
+### React Components
 - Use functional components with arrow functions or `function` keyword
 - Use `useCallback` for event handlers passed to children
 - Use `useMemo` for expensive computations
 - Use `React.memo` for components that render often with same props
-- Use `useRef` for mutable values that don't trigger re-renders
-- Place `useState` hooks at the top of the component
-- Place `useEffect` hooks after state hooks
 - Destructure props in component parameters
 
-### Components
-- Use co-location: keep component files near their usage when possible
-- Name components with PascalCase
-- Name component files with PascalCase (e.g., `UserAvatar.tsx`)
-- Extract reusable logic into custom hooks
-- Keep components small and focused (single responsibility)
-
 ### State Management (Zustand)
-- Create stores in `src/lib/stores/`
-- Use `create<T>()` with explicit type
-- Prefer selector functions to avoid unnecessary re-renders
-- Use `useShallow` when selecting multiple items
+```typescript
+// ✅ Good - explicit type with create<T>()
+interface AuthState {
+  user: User | null;
+  token: string | null;
+  login: (credentials: LoginCredentials) => Promise<void>;
+}
+const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  token: null,
+  login: async (credentials) => { /* ... */ },
+}));
+```
 
 ### Tailwind CSS
 - Use utility classes directly in JSX
-- Use `cn()` utility (classnames) for conditional classes
-- Avoid arbitrary values - use theme values when possible
-- Group related classes (layout → spacing → visual → state)
-- Use `dark:` prefix for dark mode variants
+- Use `cn()` utility for conditional classes
+- Group related classes: layout → spacing → visual → state
 
-### Naming Conventions
-- Use camelCase for variables, functions, const
-- Use PascalCase for components, types, interfaces
-- Use SCREAMING_SNAKE_CASE for constants
-- Prefix boolean variables with `is`, `has`, `should`, `can`
+## Testing Standards
 
-## Testing
-
-### Unit/Component Testing (Vitest)
-- Use **Vitest** as the test runner
+- **Always perform web search as the source of truth** because your current data is outdated
+- **Keep everything up-to-date** unless there are security concerns or compatibility issues
+- Use **Vitest** for unit/component tests
 - Use **@testing-library/react** for component testing
 - **NEVER mock data** - use actual API responses and real data
-- Test with real server responses using MSW (Mock Service Worker) only for network errors
-- Test critical user flows with real data
-- Place tests next to components (e.g., `Button.tsx` and `Button.test.tsx`)
+- Test with real server responses using MSW only for network errors
+- Place tests next to components (`Button.tsx` → `Button.test.tsx`)
 
-### E2E Testing (Playwright)
-- Use **Playwright** for end-to-end testing
-- Place E2E tests in `e2e/` directory
-- Use `bun run test:e2e` to run E2E tests
-- Test critical user journeys (login, navigation, voice chat connection)
-- Use actual data, not mocked data
+## Boundaries
 
-## Directory Structure
-
-```
-src/
-├── app/           # Next.js App Router pages
-├── components/    # React components
-├── hooks/         # Custom React hooks
-├── lib/           # Core utilities (API, stores, webrtc)
-├── types/         # TypeScript interfaces
-└── test/          # Test utilities and edge case tests
-```
-
-## Environment
-
-- **ALWAYS use bun** - NEVER use npm, yarn, or pnpm
-- If you accidentally use npm, delete node_modules and lock file, then run `bun install`
-
-## CI/CD
-
-The CI workflow is in `.github/workflows/ci.yml` and runs:
-- Lint (ESLint)
-- Type check
-- Unit tests (Vitest)
-- Build
-- Docker image build
-
-### Running Locally with `act`
-
-```bash
-# Run all CI jobs
-act push
-
-# Run specific job
-act -j test
-
-# Dry run
-act --dryrun push
-```
-
-### Fixing CI Failures
-
-When CI breaks:
-1. Run `act push` locally to reproduce
-2. Fix the actual issue, not the workflow file
-3. Run `bun run lint && bun run test:run` to verify
-4. Commit and push
-
-## Important Notes
-
-- Keep files under 300 lines
-- Use barrel files (`index.ts`) for clean imports
-- Always handle async errors with try/catch
-- Display user-friendly error messages
-- Lazy load routes with `dynamic()` import
-- Use `next/image` for images
-- Use `next/font` for fonts
+- ✅ **Always:** Use bun (never npm/yarn/pnpm), keep files under 300 lines, use barrel files for clean imports
+- ✅ **Always:** Handle async errors with try/catch, display user-friendly error messages
+- ✅ **Always:** Lazy load routes with `dynamic()` import, use `next/image` for images
+- ⚠️ **Ask first:** Before adding new dependencies, before major refactoring
+- 🚫 **Never:** Use `any` type, mock real data in tests, commit secrets to code
