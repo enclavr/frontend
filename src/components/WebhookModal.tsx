@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { api } from '@/lib/api';
 import { Webhook, WebhookLog } from '@/types';
 
 interface WebhookModalProps {
@@ -14,53 +15,42 @@ export function WebhookModal({ roomId, onClose }: WebhookModalProps) {
   const [selectedWebhookForLogs, setSelectedWebhookForLogs] = useState<string | null>(null);
 
   const fetchWebhooks = useCallback(async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/webhook/room/${roomId}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setWebhooks(await res.json());
+      const webhooks = await api.getWebhooks(roomId);
+      setWebhooks(webhooks);
     } catch (err) { console.error('Failed to fetch webhooks:', err); }
   }, [roomId]);
 
   const handleCreateWebhook = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWebhookUrl || newWebhookEvents.length === 0) return;
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/webhook/create/${roomId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: newWebhookUrl, events: newWebhookEvents }),
-      });
-      if (res.ok) {
-        fetchWebhooks();
-        setNewWebhookUrl('');
-        setNewWebhookEvents([]);
-      }
+      await api.createWebhook(roomId, newWebhookUrl, newWebhookEvents);
+      fetchWebhooks();
+      setNewWebhookUrl('');
+      setNewWebhookEvents([]);
     } catch (err) { console.error('Failed to create webhook:', err); }
   }, [roomId, newWebhookUrl, newWebhookEvents, fetchWebhooks]);
 
   const handleDeleteWebhook = useCallback(async (webhookId: string) => {
     if (!confirm('Are you sure you want to delete this webhook?')) return;
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/webhook/${webhookId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) fetchWebhooks();
+      await api.deleteWebhook(webhookId);
+      fetchWebhooks();
     } catch (err) { console.error('Failed to delete webhook:', err); }
   }, [fetchWebhooks]);
 
   const handleToggleWebhook = useCallback(async (webhookId: string) => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/webhook/toggle/${webhookId}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) fetchWebhooks();
+      await api.toggleWebhook(webhookId);
+      fetchWebhooks();
     } catch (err) { console.error('Failed to toggle webhook:', err); }
   }, [fetchWebhooks]);
 
   const fetchWebhookLogs = useCallback(async (webhookId: string) => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/webhook/logs/${webhookId}?limit=20`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setWebhookLogs(await res.json());
+      const logs = await api.getWebhookLogs(webhookId, 20);
+      setWebhookLogs(logs);
     } catch (err) { console.error('Failed to fetch webhook logs:', err); }
   }, []);
 

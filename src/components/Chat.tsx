@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useChat } from '@/hooks/useChat';
+import { api } from '@/lib/api';
 import { FileList } from './FileList';
 import { MessageItem } from './MessageItem';
 import { ChatInput } from './ChatInput';
@@ -60,16 +61,10 @@ export function Chat({ roomId, userId, username }: ChatProps) {
 
   useEffect(() => {
     const fetchPinnedMessages = async () => {
-      if (typeof window === 'undefined') return;
-      const token = localStorage.getItem('token');
+      if (!roomId) return;
       try {
-        const res = await fetch(`/api/pinnedmessages?room_id=${roomId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setPinnedMessages(data);
-        }
+        const pinned = await api.getPinnedMessages(roomId);
+        setPinnedMessages(pinned);
       } catch (err) {
         console.error('Failed to fetch pinned messages:', err);
       }
@@ -112,15 +107,7 @@ export function Chat({ roomId, userId, username }: ChatProps) {
 
   const handlePin = useCallback(async (message: Message) => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch('/api/pinnedmessages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message_id: message.id, room_id: roomId }),
-      });
+      await api.pinMessage(message.id, roomId);
       setPinnedMessages(prev => [...prev, message]);
     } catch (err) {
       console.error('Failed to pin message:', err);

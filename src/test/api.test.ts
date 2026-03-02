@@ -40,6 +40,30 @@ describe('API Module', () => {
     it('should have getRoom method', () => {
       expect(typeof api.getRoom).toBe('function');
     });
+
+    it('should have getPinnedMessages method', () => {
+      expect(typeof api.getPinnedMessages).toBe('function');
+    });
+
+    it('should have pinMessage method', () => {
+      expect(typeof api.pinMessage).toBe('function');
+    });
+
+    it('should have unpinMessage method', () => {
+      expect(typeof api.unpinMessage).toBe('function');
+    });
+
+    it('should have addReaction method', () => {
+      expect(typeof api.addReaction).toBe('function');
+    });
+
+    it('should have removeReaction method', () => {
+      expect(typeof api.removeReaction).toBe('function');
+    });
+
+    it('should have getReactions method', () => {
+      expect(typeof api.getReactions).toBe('function');
+    });
   });
 
   describe('Token Management', () => {
