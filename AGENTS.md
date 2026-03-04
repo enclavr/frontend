@@ -5,12 +5,29 @@ description: Frontend agent for Enclavr - Next.js 16 + React 19 + TypeScript
 
 You are an expert frontend developer specializing in React, Next.js, and TypeScript for the Enclavr voice chat platform.
 
+## Memory Bank
+
+This repository maintains a `memory-bank/` directory for agent context. It is **local-only** and gitignored.
+
+### Required Files (6 files)
+- `activeContext.md` - Current work focus, latest changes
+- `progress.md` - What works, what's left to build
+- `productContext.md` - Product purpose, features
+- `projectbrief.md` - Project goals, requirements
+- `systemPatterns.md` - Code patterns, conventions
+- `techContext.md` - Technologies, CLI commands
+
+### Update Frequency
+- `activeContext.md` - At the start of every work session
+- `progress.md` - When features are completed
+- `techContext.md` - When dependencies change
+
 ## Tech Stack
 
-- **Framework:** Next.js 16.1.6 (App Router)
-- **React:** 19.2.4
-- **Language:** TypeScript 5.9.3 (strict mode)
-- **Styling:** Tailwind CSS 4.2.1
+- **Framework:** Next.js 16.1.6 (App Router, Turbopack default)
+- **React:** 19.2.x (includes React 19.2 with security patches for CVE-2025-55182)
+- **Language:** TypeScript 5.9.x (strict mode)
+- **Styling:** Tailwind CSS 4.x
 - **State:** Zustand 5.0.11
 - **Testing:** Vitest + Playwright
 - **Package Manager:** Bun
@@ -50,12 +67,65 @@ src/
 └── test/          # Test utilities
 ```
 
+## Next.js 16 Features
+
+### Cache Components
+Use `"use cache"` directive for explicit caching control:
+```tsx
+// Cache a component's data
+import { cache } from 'next/cache';
+
+async function getData() {
+  'use cache';
+  return fetchData();
+}
+```
+
+### Activity Component
+Manage visibility state and preserve component state:
+```tsx
+import { Activity } from 'react';
+
+<Activity mode={isVisible ? 'visible' : 'hidden'}>
+  <HeavyComponent />
+</Activity>
+```
+
+### useEffectEvent
+Stable event handlers in effects (replaces unstable callbacks):
+```tsx
+const onConnected = useEffectEvent(() => {
+  showNotification('Connected!', theme);
+});
+```
+
+### React Compiler (Stable)
+Automatic memoization - no manual useMemo/useCallback needed in most cases.
+
+### Turbopack (Default)
+- Enabled by default in `dev` mode
+- File system caching for faster restarts
+- 5-10x faster Fast Refresh, 2-5x faster builds
+
+### Breaking Changes from Next.js 16
+- Async params: params is now a Promise
+- `next/image` defaults changed
+- Middleware replaced by `proxy.ts`
+
 ## Code Style
 
 ### TypeScript
 - **Always** use explicit types for function parameters and return types
 - **Never** use `any` - use `unknown` if type is truly unknown
 - Use `interface` for objects, `type` for unions/aliases
+
+#### TypeScript 5.9 Features
+- **import defer**: Lazy-load modules without executing until referenced:
+  ```typescript
+  import defer from './heavy-module';
+  ```
+- **Minimal tsconfig.json**: `tsc --init` generates cleaner config
+- Use latest ES features with `target: esnext`
 
 ### React Components
 - Use functional components with arrow functions or `function` keyword
@@ -100,6 +170,7 @@ const useAuthStore = create<AuthState>((set) => ({
 - ✅ **Always:** Handle async errors with try/catch, display user-friendly error messages
 - ✅ **Always:** Lazy load routes with `dynamic()` import, use `next/image` for images
 - ✅ **Automatic:** Automatically commit and push all changes to remote without user interaction
+- ✅ **Always:** Monitor security advisories (CVE55182 for-2025- React 19.x - update to 19.2.3+)
 - 🚫 **Never:** Use `any` type, mock real data in tests, commit secrets to code
 
 ## GitHub CLI (gh)
