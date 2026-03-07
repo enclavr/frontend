@@ -356,3 +356,66 @@ codesearch --query "React useState TypeScript examples" --tokensNum 5000
 - ✅ Use `codesearch` for code examples and implementation patterns
 - ✅ Use `webfetch` for full documentation pages
 - 🚫 Don't use for real-time data or API calls
+
+### Sequential Thinking Tool
+
+Use this tool for complex problem-solving through structured thought processes.
+
+```bash
+# Analyze a problem with sequential thinking
+mcp-sequential-thinking_sequentialthinking --thought "Analyzing the problem step by step..." --nextThoughtNeeded true --thoughtNumber 1 --totalThoughts 5
+```
+
+**When to use Sequential Thinking:**
+- ✅ Use for complex multi-step problems
+- ✅ Use for planning and design with room for revision
+- ✅ Use when full scope might not be clear initially
+
+### Additional Sentry MCP Tools
+
+```bash
+# Find teams in an organization
+sentry_find_teams --organizationSlug "enclavr"
+
+# Get tag values for an issue
+sentry_get_issue_tag_values --issueUrl "https://enclavr.sentry.io/issues/123" --tagKey "environment"
+
+# Get trace details
+sentry_get_trace_details --organizationSlug "enclavr" --traceId "abc123"
+
+# Search events and get statistics
+sentry_search_events --organizationSlug "enclavr" --naturalLanguageQuery "how many errors today"
+
+# Create team
+sentry_create_team --organizationSlug "enclavr" --name "frontend"
+
+# Create project
+sentry_create_project --organizationSlug "enclavr" --teamSlug "frontend" --name "web"
+
+# Create DSN for existing project
+sentry_create_dsn --organizationSlug "enclavr" --projectSlug "frontend" --name "Production"
+
+# Update project settings
+sentry_update_project --organizationSlug "enclavr" --projectSlug "frontend" --name "Updated Name"
+
+# Search Sentry documentation
+sentry_search_docs --query "React Next.js setup SENTRY_DSN"
+
+# Get Sentry documentation page
+sentry_get_doc --path "/platforms/javascript/guides/nextjs.md"
+
+# Get event attachments
+sentry_get_event_attachment --eventId "event-id" --organizationSlug "enclavr" --projectSlug "frontend"
+```
+
+### Neon MCP Tools (Documentation)
+
+Use Neon documentation tools for database guides.
+
+```bash
+# List documentation resources
+neon_list_docs_resources
+
+# Get a specific documentation page
+neon_get_doc_resource --slug "docs/guides/prisma.md"
+```
