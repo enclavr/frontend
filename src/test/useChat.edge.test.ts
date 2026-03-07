@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useChat } from '@/hooks/useChat';
 
 vi.mock('@/lib/api', () => ({
@@ -32,6 +32,9 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+// Store original WebSocket
+const OriginalWebSocket = globalThis.WebSocket;
+
 class MockWebSocket {
   static CONNECTING = 0;
   static OPEN = 1;
@@ -60,7 +63,8 @@ class MockWebSocket {
   }
 }
 
-vi.stubGlobal('WebSocket', MockWebSocket);
+// Override global WebSocket
+globalThis.WebSocket = MockWebSocket as any;
 
 describe('useChat Hook', () => {
   beforeEach(() => {

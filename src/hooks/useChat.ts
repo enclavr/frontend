@@ -1,8 +1,13 @@
-'use client';
+ 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import type { Message, TypingUser, TypingData } from '@/types';
+
+// Reconnection configuration
+const MAX_RECONNECT_ATTEMPTS = 5;
+const INITIAL_RECONNECT_DELAY = 1000; // 1 second
+const MAX_RECONNECT_DELAY = 30000; // 30 seconds
 
 /**
  * Connection state for the WebSocket connection
