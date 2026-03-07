@@ -58,14 +58,13 @@ class PushService {
       return null;
     }
 
-    try {
-      this.registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered successfully');
-      return this.registration;
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
-      return null;
-    }
+     try {
+       this.registration = await navigator.serviceWorker.register('/sw.js');
+       return this.registration;
+     } catch (error) {
+       console.error('Service Worker registration failed:', error);
+       return null;
+     }
   }
 
   async subscribeToPush(): Promise<PushSubscription | null> {

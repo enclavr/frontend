@@ -4,21 +4,38 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import type { Message, TypingUser, TypingData } from '@/types';
 
-type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
+/**
+ * Connection state for the WebSocket connection
+ */
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
-export type { ConnectionState };
-
+/**
+ * Options for the useChat hook
+ */
 interface UseChatOptions {
+  /** The ID of the room to join */
   roomId: string;
+  /** The ID of the current user */
   userId: string;
+  /** The username of the current user */
   username: string;
+  /** Optional callback when a new message arrives */
   onNewMessage?: (message: Message) => void;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-const INITIAL_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 30000;
-
+/**
+ * useChat - A hook for managing chat functionality with WebSocket real-time messaging
+ *
+ * Features:
+ * - Real-time messaging via WebSocket
+ * - Automatic reconnection with exponential backoff
+ * - Message queuing when disconnected
+ * - Typing indicators
+ * - Message editing and deletion
+ *
+ * @param options - Configuration options
+ * @returns Chat functionality including sendMessage, updateMessage, deleteMessage, etc.
+ */
 export function useChat({ roomId, userId, username, onNewMessage }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,12 +73,11 @@ export function useChat({ roomId, userId, username, onNewMessage }: UseChatOptio
     const wsUrl = `${protocol}//${window.location.host}/api/ws?room_id=${roomId}`;
     const ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
-      console.log('Chat WebSocket connected');
-      setConnectionState('connected');
-      reconnectAttemptsRef.current = 0;
-      flushMessageQueue();
-    };
+     ws.onopen = () => {
+       setConnectionState('connected');
+       reconnectAttemptsRef.current = 0;
+       flushMessageQueue();
+     };
 
     ws.onmessage = (event) => {
       try {
@@ -131,21 +147,19 @@ export function useChat({ roomId, userId, username, onNewMessage }: UseChatOptio
       setError('WebSocket connection error');
     };
 
-    ws.onclose = (event) => {
-      console.log('Chat WebSocket disconnected', event.code, event.reason);
-      setConnectionState('disconnected');
-      
-      if (!isUnmountedRef.current && !event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(
-          INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
-          MAX_RECONNECT_DELAY
-        );
-        console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})`);
-        setConnectionState('reconnecting');
-        reconnectAttemptsRef.current++;
-        reconnectTimeoutRef.current = setTimeout(connect, delay);
-      }
-    };
+     ws.onclose = (event) => {
+       setConnectionState('disconnected');
+       
+       if (!isUnmountedRef.current && !event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+         const delay = Math.min(
+           INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
+           MAX_RECONNECT_DELAY
+         );
+         setConnectionState('reconnecting');
+         reconnectAttemptsRef.current++;
+         reconnectTimeoutRef.current = setTimeout(connect, delay);
+       }
+     };
 
     wsRef.current = ws;
   }, [roomId, userId, onNewMessage]);

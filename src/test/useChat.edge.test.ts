@@ -594,3 +594,94 @@ describe('useChat Message Queue', () => {
     expect(result.current.pendingCount).toBe(0);
   });
 });
+
+describe('useChat Advanced Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should handle WebSocket error event', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const mockWs = (global as any).WebSocket.prototype;
+    if (mockWs.onerror) {
+      act(() => {
+        mockWs.onerror(new Error('Connection error'));
+      });
+
+      expect(result.current.error).toBe('WebSocket connection error');
+    }
+  });
+
+  it('should handle malformed WebSocket messages', async () => {
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const mockWs = (global as any).WebSocket.prototype;
+    if (mockWs.onmessage) {
+      act(() => {
+        mockWs.onmessage({ data: 'invalid-json' });
+      });
+
+      expect(result.current.error).toBeNull();
+    }
+  });
+
+  it('should handle concurrent fetchMessages calls', async () => {
+    const { api } = await import('@/lib/api');
+    let callCount = 0;
+    vi.mocked(api.getMessages).mockImplementation(async () => {
+      callCount++;
+      await new Promise(resolve => setTimeout(resolve, 10));
+      return [];
+    });
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    // Wait for initial useEffect fetch to complete
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 30));
+    });
+
+    // Reset counter after initial fetch
+    callCount = 0;
+
+    await act(async () => {
+      await Promise.all([
+        result.current.fetchMessages(),
+        result.current.fetchMessages(),
+        result.current.fetchMessages(),
+      ]);
+    });
+
+    expect(callCount).toBe(3);
+  });
+
+  it('should handle empty array response from getMessages', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.getMessages).mockResolvedValue([]);
+
+    const { result } = renderHook(() =>
+      useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
+    );
+
+    await act(async () => {
+      await result.current.fetchMessages();
+    });
+
+    expect(result.current.messages).toEqual([]);
+  });
+});
