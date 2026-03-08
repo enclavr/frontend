@@ -1,4 +1,4 @@
-FROM oven/bun:1-debian AS builder
+FROM oven/bun:1.3.10-alpine AS builder
 
 WORKDIR /app
 
