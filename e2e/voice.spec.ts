@@ -176,7 +176,7 @@ test.describe('WebRTC Connection', () => {
     await page.waitForTimeout(1000);
     const iceHandler = await page.evaluate(() => {
       const pc = new RTCPeerConnection({ iceServers: [] });
-      let candidates: RTCIceCandidate[] = [];
+      const candidates: RTCIceCandidate[] = [];
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           candidates.push(event.candidate);
