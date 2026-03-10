@@ -171,7 +171,30 @@ const useAuthStore = create<AuthState>((set) => ({
 - ✅ **Always:** Lazy load routes with `dynamic()` import, use `next/image` for images
 - ✅ **Automatic:** Automatically commit and push all changes to remote without user interaction
 - ✅ **Always:** Monitor security advisories (CVE55182 for-2025- React 19.x - update to 19.2.3+)
+- ✅ **Proactive:** Every task should add NEW FEATURES while also fixing bugs/maintaining code
 - 🚫 **Never:** Use `any` type, mock real data in tests, commit secrets to code
+
+## Proactive Feature Building
+
+Every task should do BOTH:
+
+1. **MAINTENANCE** (always):
+   - Fix bugs found during work
+   - Add tests for uncovered code
+   - Refactor messy functions
+   - Update dependencies
+
+2. **NEW FEATURE** (always):
+   - Add new UI components
+   - Add new pages
+   - Add new React hooks
+   - Add new utilities
+   - Improve existing features
+
+Example tasks:
+- "Fix the auth form bug AND add a user settings page"
+- "Add error boundary AND create a new notification component"
+- "Fix TypeScript errors AND implement a new useDebounce hook"
 
 ## GitHub CLI (gh)
 

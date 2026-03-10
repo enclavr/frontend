@@ -6,6 +6,38 @@ The default Next.js frontend for Enclavr voice chat platform.
 
 This project uses **bun** as the package manager. DO NOT use npm, yarn, or pnpm.
 
+## Error Monitoring (Sentry)
+
+The Next.js frontend is integrated with Sentry for production error tracking, performance monitoring, and session replay.
+
+### Configuration
+
+Create a `.env.local` file with:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_SENTRY_DSN=https://[email]@sentry.io/[project-id]
+```
+
+### Sentry Features
+
+- **Error Tracking**: Captures unhandled exceptions and React errors
+- **Performance Monitoring**: Auto-instrumented transactions and spans
+- **Session Replay**: Records user sessions for debugging
+- **Browser Tracing**: Visualizes page load performance
+- **API Error Tracking**: Server-side API errors captured via base client
+
+### Sentry Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `sentry.client.config.ts` | Client-side Sentry (replay, browser tracing) |
+| `sentry.server.config.ts` | Server-side Sentry (API errors) |
+| `sentry.edge.config.ts` | Edge runtime Sentry |
+| `src/app/error.tsx` | Error boundary with Sentry capture |
+| `src/app/global-error.tsx` | Global error boundary |
+| `src/lib/sentry-client.ts` | Sentry client utilities |
+
 ## Getting Started
 
 ```bash
@@ -58,6 +90,16 @@ Edge case tests cover:
 
 Create a `.env.local` file:
 
+```
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_SENTRY_DSN=https://[email]@sentry.io/[project-id]
+```
+
+## Getting Started
+
+```bash
+bun install
+bun run dev
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
