@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 const localStorageMock = (() => {
@@ -114,7 +114,7 @@ describe('useLocalStorage', () => {
 
   it('should call onError callback on error', () => {
     const onError = vi.fn();
-    vi.spyOn(localStorageMock, 'getItem').mockImplementation(() => {
+    const spy = vi.spyOn(localStorageMock, 'getItem').mockImplementation(() => {
       throw new Error('Storage error');
     });
 
@@ -124,6 +124,8 @@ describe('useLocalStorage', () => {
 
     expect(onError).toHaveBeenCalled();
     expect(result.current[0]).toBe('initial');
+
+    spy.mockRestore();
   });
 
   it('should use custom serializer', () => {
@@ -140,7 +142,7 @@ describe('useLocalStorage', () => {
     expect(customSerializer).toHaveBeenCalledWith('updated');
   });
 
-  it('should use custom deserializer', () => {
+  it('should use custom deserializer', async () => {
     const customDeserializer = vi.fn((value: string) => 'deserialized-' + value);
     localStorage.setItem('test-key', 'stored');
 
@@ -148,7 +150,12 @@ describe('useLocalStorage', () => {
       useLocalStorage('test-key', 'initial', { deserializer: customDeserializer })
     );
 
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
     expect(result.current[0]).toBe('deserialized-stored');
+    expect(customDeserializer).toHaveBeenCalledWith('stored');
   });
 
   it('should initialize with server-side value on SSR', () => {

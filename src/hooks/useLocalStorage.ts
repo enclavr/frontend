@@ -127,7 +127,7 @@ export function useLocalStorage<T>(
   useSyncExternalStore(
     () => subscribe(key, () => setStoredValue(getStoredValue())),
     () => storedValue,
-    () => initialValue
+    () => storedValue
   );
 
   return [storedValue, setValue, removeValue];
