@@ -46,14 +46,12 @@ export function useDebounce<T>(
     }
 
     if (delay <= 0) {
-       
       setDebouncedValue(value);
       return clearTimeout;
     }
 
     if (trailing) {
       timeoutRef.current = setTimeout(() => {
-         
         setDebouncedValue(value);
         timeoutRef.current = null;
       }, delay);
