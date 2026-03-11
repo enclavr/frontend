@@ -369,3 +369,13 @@ export interface VoiceUser {
   isSpeaking: boolean;
   isScreenSharing: boolean;
 }
+
+export interface UserProfile {
+  user: User;
+  joined_at: string;
+  roles: Role[];
+  rooms_count: number;
+  messages_count: number;
+  last_seen: string;
+  status: 'online' | 'away' | 'busy' | 'offline';
+}

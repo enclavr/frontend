@@ -5,3 +5,4 @@ export { ChatApi, chatApi } from './chat';
 export { DMApi, dmApi } from './dm';
 export { PresenceApi, presenceApi } from './presence';
 export { AdminApi, adminApi } from './admin';
+export { UserApi, userApi } from './user';
