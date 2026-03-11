@@ -89,17 +89,17 @@ describe('useMediaQuery', () => {
     });
   });
 
-  it('should call onChange callback when provided', () => {
+  it('should call onChange callback when provided', async () => {
     const onChange = vi.fn();
-    let changeHandler: ((event: MediaQueryListEvent) => void) | null = null;
+    let changeHandler: ((event: MediaQueryListEvent) => void) | undefined = undefined;
     
-    const mockMatchMedia = vi.fn().mockImplementation((query: string) => ({
+    const mockMatchMedia = vi.fn().mockImplementation((_query: string) => ({
       matches: false,
-      media: query,
+      media: '',
       onchange: null,
       addListener: vi.fn(),
       removeListener: vi.fn(),
-      addEventListener: vi.fn((event: string, handler: () => void) => {
+      addEventListener: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         if (event === 'change') {
           changeHandler = handler as (event: MediaQueryListEvent) => void;
         }
@@ -113,10 +113,12 @@ describe('useMediaQuery', () => {
     renderHook(() => useMediaQuery('(min-width: 768px)', { onChange }));
 
     if (changeHandler) {
-      changeHandler({ matches: true } as MediaQueryListEvent);
+      (changeHandler as (event: MediaQueryListEvent) => void)({ matches: true } as MediaQueryListEvent);
     }
 
-    expect(onChange).toHaveBeenCalledWith(true);
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
   });
 
   it('should clean up event listener on unmount', () => {
