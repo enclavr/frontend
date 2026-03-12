@@ -23,8 +23,18 @@ vi.mock('@/lib/push', () => ({
   },
 }));
 
-const mockPushService = pushService as ReturnType<typeof vi.fn>;
-const mockUseAuthStore = useAuthStore as ReturnType<typeof vi.fn>;
+const mockPushService = pushService as unknown as {
+  setToken: ReturnType<typeof vi.fn>;
+  getNotificationSettings: ReturnType<typeof vi.fn>;
+  getSubscriptions: ReturnType<typeof vi.fn>;
+  isPushSupported: ReturnType<typeof vi.fn>;
+  isSubscribed: ReturnType<typeof vi.fn>;
+  subscribeToPush: ReturnType<typeof vi.fn>;
+  unsubscribeFromPush: ReturnType<typeof vi.fn>;
+  updateNotificationSettings: ReturnType<typeof vi.fn>;
+  testNotification: ReturnType<typeof vi.fn>;
+};
+const mockUseAuthStore = useAuthStore as unknown as ReturnType<typeof vi.fn>;
 
 const createMockUser = () => ({
   id: 'user-1',
