@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 export type { VoiceUser } from '@/types';
 import type { VoiceUser as VoiceUserType } from '@/types';
-import type { ConnectionState } from 'zustand';
+import type { ConnectionState } from './useChat';
 import {
   DEFAULT_ICE_SERVERS,
   fetchICEServers,

@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NotificationsPage from '@/app/notifications/page';
-import { useAuthStore } from '@/lib/store';
+import { useAuthStore, type AuthState } from '@/lib/store';
 import { pushService } from '@/lib/push';
 
 const { mockUseAuthStore, mockPushService } = vi.hoisted(() => ({
-  mockUseAuthStore: vi.fn(() => ({
+  mockUseAuthStore: vi.fn<() => AuthState>(() => ({
     user: null,
     token: null,
     isAuthenticated: false,
