@@ -5,12 +5,14 @@ import NotificationsPage from '@/app/notifications/page';
 import { useAuthStore } from '@/lib/store';
 import { pushService } from '@/lib/push';
 
-vi.mock('@/lib/store', () => ({
-  useAuthStore: vi.fn(),
-}));
-
-vi.mock('@/lib/push', () => ({
-  pushService: {
+const { mockUseAuthStore, mockPushService } = vi.hoisted(() => ({
+  mockUseAuthStore: vi.fn(() => ({
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    logout: vi.fn(),
+  })),
+  mockPushService: {
     setToken: vi.fn(),
     getNotificationSettings: vi.fn(),
     getSubscriptions: vi.fn(),
@@ -23,18 +25,13 @@ vi.mock('@/lib/push', () => ({
   },
 }));
 
-const mockPushService = pushService as unknown as {
-  setToken: ReturnType<typeof vi.fn>;
-  getNotificationSettings: ReturnType<typeof vi.fn>;
-  getSubscriptions: ReturnType<typeof vi.fn>;
-  isPushSupported: ReturnType<typeof vi.fn>;
-  isSubscribed: ReturnType<typeof vi.fn>;
-  subscribeToPush: ReturnType<typeof vi.fn>;
-  unsubscribeFromPush: ReturnType<typeof vi.fn>;
-  updateNotificationSettings: ReturnType<typeof vi.fn>;
-  testNotification: ReturnType<typeof vi.fn>;
-};
-const mockUseAuthStore = useAuthStore as unknown as ReturnType<typeof vi.fn>;
+vi.mock('@/lib/store', () => ({
+  useAuthStore: mockUseAuthStore,
+}));
+
+vi.mock('@/lib/push', () => ({
+  pushService: mockPushService,
+}));
 
 const createMockUser = () => ({
   id: 'user-1',

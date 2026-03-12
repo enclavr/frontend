@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 export type { VoiceUser } from '@/types';
 import type { VoiceUser as VoiceUserType } from '@/types';
+import type { ConnectionState } from 'zustand';
 import {
   DEFAULT_ICE_SERVERS,
   fetchICEServers,
@@ -15,6 +16,10 @@ import {
   closePeerConnection,
 } from '@/lib/webrtc';
 import type { UseWebRTCOptions, PeerConnection } from '@/lib/webrtc/types';
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const INITIAL_RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 30000;
 
 export function useWebRTC({
   roomId,
