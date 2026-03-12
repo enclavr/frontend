@@ -112,8 +112,9 @@ describe('useMediaQuery', () => {
 
     renderHook(() => useMediaQuery('(min-width: 768px)', { onChange }));
 
-    if (changeHandler) {
-      changeHandler({ matches: true } as MediaQueryListEvent);
+    const handler = changeHandler as ((event: MediaQueryListEvent) => void) | undefined;
+    if (handler) {
+      (handler as (event: MediaQueryListEvent) => void)({ matches: true } as MediaQueryListEvent);
     }
 
     await waitFor(() => {
