@@ -104,6 +104,41 @@ export class AuthApi extends BaseApiClient {
       body: JSON.stringify({ token }),
     });
   }
+
+  async getSessions(): Promise<{ sessions: SessionInfo[]; count: number }> {
+    return this.request<{ sessions: SessionInfo[]; count: number }>('/api/auth/sessions');
+  }
+
+  async revokeSession(sessionId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/auth/sessions/revoke?id=${sessionId}`, {
+      method: 'POST',
+    });
+  }
+
+  async revokeAllSessions(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/sessions/revoke-all', {
+      method: 'POST',
+    });
+  }
+
+  async rotateToken(): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+    return this.request<{ access_token: string; refresh_token: string; expires_in: number }>('/api/auth/sessions/rotate', {
+      method: 'POST',
+    });
+  }
+
+  async getActiveSessionsCount(): Promise<{ active_sessions: number }> {
+    return this.request<{ active_sessions: number }>('/api/auth/sessions/count');
+  }
+}
+
+export interface SessionInfo {
+  id: string;
+  created_at: string;
+  expires_at: string;
+  ip_address: string;
+  user_agent: string;
+  current: boolean;
 }
 
 export const authApi = new AuthApi();

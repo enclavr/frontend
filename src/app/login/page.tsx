@@ -43,9 +43,10 @@ export default function LoginPage() {
     try {
       if (showTwoFactor && userId) {
         const response = await authApi.verify2FA(userId, twoFactorCode);
-        await login(username, password);
-        await login(username, password);
-        router.push('/rooms');
+        if (response.access_token) {
+          await login(trimmedUsername, trimmedPassword);
+          router.push('/rooms');
+        }
         return;
       }
 
