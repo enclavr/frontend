@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { api } from '@/lib/api';
 import { User, Room } from '@/types';
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
