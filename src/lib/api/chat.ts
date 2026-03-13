@@ -1,16 +1,20 @@
 import { BaseApiClient } from './base';
-import type { Message, MessageType, SearchResult, ReactionWithCount } from '@/types';
+import type { Message, MessageType, SearchResult, ReactionWithCount, ThreadReply, BlockedUser } from '@/types';
 
 export class ChatApi extends BaseApiClient {
-  async sendMessage(roomId: string, content: string, type: MessageType = 'text'): Promise<Message> {
+  async sendMessage(roomId: string, content: string, type: MessageType = 'text', parentId?: string): Promise<Message> {
     return this.request<Message>('/api/messages', {
       method: 'POST',
-      body: JSON.stringify({ room_id: roomId, content, type }),
+      body: JSON.stringify({ room_id: roomId, content, type, parent_id: parentId }),
     });
   }
 
   async getMessages(roomId: string, limit: number = 50): Promise<Message[]> {
     return this.request<Message[]>(`/api/messages?room_id=${roomId}&limit=${limit}`);
+  }
+
+  async getThreadMessages(parentId: string): Promise<ThreadReply[]> {
+    return this.request<ThreadReply[]>(`/api/threads?parent_id=${parentId}`);
   }
 
   async updateMessage(messageId: string, content: string): Promise<Message> {
@@ -63,6 +67,34 @@ export class ChatApi extends BaseApiClient {
 
   async getReactions(messageId: string): Promise<ReactionWithCount[]> {
     return this.request<ReactionWithCount[]>(`/api/reactions?message_id=${messageId}`);
+  }
+
+  async markMessageAsRead(messageId: string, roomId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>('/api/messages/read', {
+      method: 'POST',
+      body: JSON.stringify({ message_id: messageId, room_id: roomId }),
+    });
+  }
+
+  async getReadReceipts(messageId: string): Promise<{ userId: string; readAt: string }[]> {
+    return this.request<{ userId: string; readAt: string }[]>(`/api/messages/read?message_id=${messageId}`);
+  }
+
+  async blockUser(blockedUserId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>('/api/users/block', {
+      method: 'POST',
+      body: JSON.stringify({ blocked_user_id: blockedUserId }),
+    });
+  }
+
+  async unblockUser(blockedUserId: string): Promise<{ status: string }> {
+    return this.request<{ status: string }>(`/api/users/block?blocked_user_id=${blockedUserId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getBlockedUsers(): Promise<BlockedUser[]> {
+    return this.request<BlockedUser[]>('/api/users/blocked');
   }
 }
 

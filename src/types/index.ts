@@ -66,6 +66,10 @@ export interface Message {
   is_deleted: boolean;
   created_at: string;
   updated_at?: string;
+  parent_id?: string | null;
+  thread_count?: number;
+  read_by?: ReadReceipt[];
+  reactions?: ReactionWithCount[];
 }
 
 export interface TypingUser {
@@ -360,6 +364,26 @@ export interface ServerSettings {
 export interface TypingData {
   user_id: string;
   username?: string;
+}
+
+export interface ReadReceipt {
+  userId: string;
+  readAt: string;
+}
+
+export interface ThreadReply {
+  id: string;
+  parent_id: string;
+  room_id: string;
+  user_id: string;
+  username: string;
+  content: string;
+  created_at: string;
+}
+
+export interface BlockedUser {
+  blocked_userId: string;
+  blockedAt: string;
 }
 
 export interface VoiceUser {

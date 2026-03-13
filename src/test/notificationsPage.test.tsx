@@ -9,8 +9,15 @@ const { mockUseAuthStore, mockPushService } = vi.hoisted(() => ({
   mockUseAuthStore: vi.fn<() => AuthState>(() => ({
     user: null,
     token: null,
+    refreshToken: null,
     isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
     logout: vi.fn(),
+    setUser: vi.fn(),
+    clearError: vi.fn(),
   })),
   mockPushService: {
     setToken: vi.fn(),
@@ -38,7 +45,7 @@ const createMockUser = () => ({
   username: 'testuser',
   email: 'test@example.com',
   display_name: 'Test User',
-  avatar_url: null,
+  avatar_url: '',
   is_admin: false,
   created_at: '2024-01-01T00:00:00Z',
 });
@@ -73,8 +80,15 @@ describe('NotificationsPage', () => {
     mockUseAuthStore.mockReturnValue({
       user: createMockUser(),
       token: 'test-token',
+      refreshToken: 'refresh-token',
       isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      login: vi.fn(),
+      register: vi.fn(),
       logout: vi.fn(),
+      setUser: vi.fn(),
+      clearError: vi.fn(),
     });
 
     mockPushService.setToken.mockResolvedValue(undefined);
