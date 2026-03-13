@@ -4,12 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { chatApi } from '@/lib/api';
 import type { Message, TypingUser, TypingData, ReadReceipt, ThreadReply, BlockedUser } from '@/types';
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-const INITIAL_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 30000;
-const HEARTBEAT_INTERVAL = 30000;
-const MESSAGE_VALIDATION_MAX_LENGTH = 4000;
-
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 export interface UseChatOptions {
@@ -18,6 +12,53 @@ export interface UseChatOptions {
   username: string;
   onNewMessage?: (message: Message) => void;
   onMessageRead?: (messageId: string, userId: string) => void;
+}
+
+const MAX_RECONNECT_ATTEMPTS = 10;
+const INITIAL_RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 60000;
+const HEARTBEAT_INTERVAL = 30000;
+const MESSAGE_VALIDATION_MAX_LENGTH = 4000;
+const RECONNECT_JITTER_FACTOR = 0.3;
+const MAX_MESSAGE_SIZE = 512 * 1024;
+
+interface WebSocketMessage {
+  type: string;
+  room_id?: string;
+  user_id?: string;
+  username?: string;
+  payload?: unknown;
+  timestamp?: string;
+}
+
+function isValidWebSocketMessage(data: unknown): data is WebSocketMessage {
+  if (!data || typeof data !== 'object') return false;
+  const msg = data as Record<string, unknown>;
+  if (typeof msg.type !== 'string') return false;
+  if (msg.type.length > 50) return false;
+  return true;
+}
+
+function sanitizePayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload;
+  const obj = payload as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      sanitized[key] = value.split('').filter(c => {
+        const code = c.charCodeAt(0);
+        return code >= 32 && code !== 127;
+      }).join('').slice(0, 10000);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
+function generateJitter(delay: number, factor: number): number {
+  const jitter = delay * factor * Math.random();
+  return Math.floor(delay + jitter);
 }
 
 function validateMessageContent(content: string): string | null {
@@ -30,7 +71,17 @@ function validateMessageContent(content: string): string | null {
   if (content.trim().length === 0) {
     return 'Message cannot be only whitespace';
   }
+  if (content.includes('\x00')) {
+    return 'Message contains invalid characters';
+  }
   return null;
+}
+
+function sanitizeMessageContent(content: string): string {
+  return content.split('').filter(c => {
+    const code = c.charCodeAt(0);
+    return code >= 32 && code !== 127;
+  }).join('').replace(/[\u202E\u202D]/g, '').slice(0, MESSAGE_VALIDATION_MAX_LENGTH);
 }
 
 export function useChat({ roomId, userId, username, onNewMessage, onMessageRead }: UseChatOptions) {
@@ -42,6 +93,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
   const [pendingCount, setPendingCount] = useState(0);
   const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+  const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -53,6 +105,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
   const isSendingRef = useRef(false);
   const pendingMessagesRef = useRef<Map<string, Message>>(new Map());
   const lastMessageIdRef = useRef<string | null>(null);
+  const lastHeartbeatRef = useRef<number>(0);
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
@@ -82,6 +135,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
 
   const sendHeartbeat = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      lastHeartbeatRef.current = Date.now();
       wsRef.current.send(JSON.stringify({ type: 'heartbeat', room_id: roomId }));
     }
   }, [roomId]);
@@ -117,8 +171,19 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     };
 
     ws.onmessage = (event) => {
+      if (event.data.length > MAX_MESSAGE_SIZE) {
+        console.warn('WebSocket message exceeds maximum size, dropping');
+        return;
+      }
+      
       try {
         const data = JSON.parse(event.data);
+        
+        if (!isValidWebSocketMessage(data)) {
+          console.warn('Invalid WebSocket message format, dropping');
+          return;
+        }
+        
         switch (data.type) {
           case 'chat-message': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
@@ -173,12 +238,14 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             break;
           }
           case 'user-typing':
-            if (data.user_id !== userId && !blockedUsers.some(b => b.blocked_userId === data.user_id)) {
-              handleTyping(data);
+            if (data.user_id && data.user_id !== userId && !blockedUsers.some(b => b.blocked_userId === data.user_id)) {
+              handleTyping({ user_id: data.user_id, username: data.username });
             }
             break;
           case 'user-stopped-typing':
-            setTypingUsers((prev) => prev.filter((u) => u.user_id !== data.user_id));
+            if (data.user_id) {
+              setTypingUsers((prev) => prev.filter((u) => u.user_id !== data.user_id));
+            }
             break;
           case 'reaction-added':
           case 'reaction-removed': {
@@ -218,13 +285,86 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             );
             break;
           }
+          case 'thread-created': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            if (payload?.parent_id) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === payload.parent_id
+                    ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
+                    : msg
+                )
+              );
+            }
+            break;
+          }
+          case 'thread-message': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            if (payload?.parent_id) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === payload.parent_id
+                    ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
+                    : msg
+                )
+              );
+            }
+            break;
+          }
+          case 'thread-message-updated': {
+            break;
+          }
+          case 'thread-message-deleted': {
+            break;
+          }
           case 'user-blocked':
           case 'user-unblocked':
             fetchBlockedUsers();
             break;
           case 'pong':
-          case 'heartbeat-ack':
+          case 'heartbeat-ack': {
+            const latency = Date.now() - lastHeartbeatRef.current;
+            if (latency > 0 && latency < 60000) {
+              setConnectionLatency(latency);
+            }
             break;
+          }
+          case 'connection-health': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            if (payload?.latency_ms) {
+              setConnectionLatency(payload.latency_ms);
+            }
+            break;
+          }
+          case 'online-users-list':
+          case 'room-state':
+          case 'room-users-detailed':
+          case 'typing-users-list':
+            break;
+          case 'user-joined':
+          case 'user-left':
+          case 'user-online':
+          case 'user-away':
+            break;
+          case 'user-speaking':
+          case 'user-stopped-speaking':
+          case 'user-screen-share-start':
+          case 'user-screen-share-stop':
+          case 'user-muted':
+          case 'user-unmuted':
+          case 'user-deafened':
+          case 'user-undeafened':
+            break;
+          case 'room-notifications':
+          case 'room-notifications-updated':
+            break;
+          case 'error': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            if (payload?.message) {
+              setError(payload.message);
+            }
+            break;
+          }
         }
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
@@ -241,13 +381,16 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
       stopHeartbeat();
       
       if (!isUnmountedRef.current && !event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(
+        const baseDelay = Math.min(
           INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
           MAX_RECONNECT_DELAY
         );
+        const delay = generateJitter(baseDelay, RECONNECT_JITTER_FACTOR);
         setConnectionState('reconnecting');
         reconnectAttemptsRef.current++;
         reconnectTimeoutRef.current = setTimeout(connect, delay);
+      } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        setError('Connection failed after multiple attempts. Please refresh the page.');
       }
     };
 
@@ -504,6 +647,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     error,
     typingUsers,
     connectionState,
+    connectionLatency,
     pendingCount,
     lastReadMessageId,
     blockedUsers,

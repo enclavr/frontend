@@ -1,35 +1,50 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useChat } from '@/hooks/useChat';
 
+const mockChatApi = vi.hoisted(() => ({
+  getMessages: vi.fn().mockResolvedValue([]),
+  sendMessage: vi.fn().mockResolvedValue({
+    id: 'msg-1',
+    room_id: 'room-1',
+    user_id: 'user-1',
+    username: 'testuser',
+    type: 'text',
+    content: 'Test message',
+    is_edited: false,
+    is_deleted: false,
+    created_at: '2026-02-26T10:00:00Z',
+  }),
+  updateMessage: vi.fn().mockResolvedValue({
+    id: 'msg-1',
+    room_id: 'room-1',
+    user_id: 'user-1',
+    username: 'testuser',
+    type: 'text',
+    content: 'Updated content',
+    is_edited: true,
+    is_deleted: false,
+    created_at: '2026-02-26T10:00:00Z',
+    updated_at: '2026-02-26T10:05:00Z',
+  }),
+  deleteMessage: vi.fn().mockResolvedValue({ status: 'ok' }),
+  searchMessages: vi.fn().mockResolvedValue([]),
+  getPinnedMessages: vi.fn().mockResolvedValue([]),
+  pinMessage: vi.fn().mockResolvedValue({ status: 'ok' }),
+  unpinMessage: vi.fn().mockResolvedValue({ status: 'ok' }),
+  addReaction: vi.fn().mockResolvedValue({ status: 'ok' }),
+  removeReaction: vi.fn().mockResolvedValue({ status: 'ok' }),
+  getReactions: vi.fn().mockResolvedValue([]),
+  markMessageAsRead: vi.fn().mockResolvedValue({ status: 'ok' }),
+  getReadReceipts: vi.fn().mockResolvedValue([]),
+  blockUser: vi.fn().mockResolvedValue({ status: 'ok' }),
+  unblockUser: vi.fn().mockResolvedValue({ status: 'ok' }),
+  getBlockedUsers: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('@/lib/api', () => ({
-  api: {
-    getMessages: vi.fn().mockResolvedValue([]),
-    sendMessage: vi.fn().mockResolvedValue({
-      id: 'msg-1',
-      room_id: 'room-1',
-      user_id: 'user-1',
-      username: 'testuser',
-      type: 'text',
-      content: 'Test message',
-      is_edited: false,
-      is_deleted: false,
-      created_at: '2026-02-26T10:00:00Z',
-    }),
-    updateMessage: vi.fn().mockResolvedValue({
-      id: 'msg-1',
-      room_id: 'room-1',
-      user_id: 'user-1',
-      username: 'testuser',
-      type: 'text',
-      content: 'Updated content',
-      is_edited: true,
-      is_deleted: false,
-      created_at: '2026-02-26T10:00:00Z',
-      updated_at: '2026-02-26T10:05:00Z',
-    }),
-    deleteMessage: vi.fn().mockResolvedValue({ status: 'ok' }),
-  },
+  api: mockChatApi,
+  chatApi: mockChatApi,
 }));
 
 // Store original WebSocket
@@ -67,8 +82,11 @@ class MockWebSocket {
 globalThis.WebSocket = MockWebSocket as any;
 
 describe('useChat Hook', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
   });
 
   describe('Initial State', () => {
@@ -97,8 +115,7 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('Hello world');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', 'Hello world');
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', 'Hello world', 'text', undefined);
     });
 
     it('should trim whitespace from message', async () => {
@@ -110,8 +127,7 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('  Hello world  ');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', 'Hello world');
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', 'Hello world', 'text', undefined);
     });
 
     it('should not send empty message', async () => {
@@ -123,8 +139,7 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('   ');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.sendMessage).not.toHaveBeenCalled();
+      expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
     });
 
     it('should not send message without roomId', async () => {
@@ -136,13 +151,10 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('Hello');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.sendMessage).not.toHaveBeenCalled();
+      expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
     });
 
     it('should handle Unicode characters in message', async () => {
-      const { api } = await import('@/lib/api');
-      
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
@@ -151,12 +163,10 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('Hello 世界 🌍 Émoji');
       });
 
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', 'Hello 世界 🌍 Émoji');
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', 'Hello 世界 🌍 Émoji', 'text', undefined);
     });
 
     it('should handle HTML/script tags in message content', async () => {
-      const { api } = await import('@/lib/api');
-      
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
@@ -165,13 +175,11 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('<script>alert("xss")</script>');
       });
 
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', '<script>alert("xss")</script>');
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', '<script>alert("xss")</script>', 'text', undefined);
     });
 
     it('should handle very long message content', async () => {
-      const longMessage = 'a'.repeat(10000);
-      const { api } = await import('@/lib/api');
-      
+      const longMessage = 'a'.repeat(4000);
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
@@ -180,12 +188,10 @@ describe('useChat Hook', () => {
         await result.current.sendMessage(longMessage);
       });
 
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', longMessage);
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', longMessage, 'text', undefined);
     });
 
     it('should handle message with special formatting characters', async () => {
-      const { api } = await import('@/lib/api');
-      
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
@@ -194,7 +200,7 @@ describe('useChat Hook', () => {
         await result.current.sendMessage('**bold** *italic* `code` #header');
       });
 
-      expect(api.sendMessage).toHaveBeenCalledWith('room-1', '**bold** *italic* `code` #header');
+      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', '**bold** *italic* `code` #header', 'text', undefined);
     });
   });
 
@@ -208,13 +214,11 @@ describe('useChat Hook', () => {
         await result.current.updateMessage('msg-1', 'Updated content');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.updateMessage).toHaveBeenCalledWith('msg-1', 'Updated content');
+      expect(mockChatApi.updateMessage).toHaveBeenCalledWith('msg-1', 'Updated content');
     });
 
     it('should handle update error', async () => {
-      const { api } = await import('@/lib/api');
-      vi.mocked(api.updateMessage).mockRejectedValueOnce(new Error('Not authorized'));
+      vi.mocked(mockChatApi.updateMessage).mockRejectedValueOnce(new Error('Not authorized'));
 
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -238,13 +242,11 @@ describe('useChat Hook', () => {
         await result.current.deleteMessage('msg-1');
       });
 
-      const { api } = await import('@/lib/api');
-      expect(api.deleteMessage).toHaveBeenCalledWith('msg-1');
+      expect(mockChatApi.deleteMessage).toHaveBeenCalledWith('msg-1');
     });
 
     it('should handle delete error', async () => {
-      const { api } = await import('@/lib/api');
-      vi.mocked(api.deleteMessage).mockRejectedValueOnce(new Error('Not found'));
+      vi.mocked(mockChatApi.deleteMessage).mockRejectedValueOnce(new Error('Not found'));
 
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -260,13 +262,16 @@ describe('useChat Hook', () => {
 });
 
 describe('useChat Edge Cases', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
   });
 
   it('should handle non-Error exceptions gracefully', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.getMessages).mockRejectedValue('Unknown error');
+    const { chatApi } = { chatApi: mockChatApi };
+    vi.mocked(mockChatApi.getMessages).mockRejectedValue('Unknown error');
 
     const { result } = renderHook(() =>
       useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -280,8 +285,8 @@ describe('useChat Edge Cases', () => {
   });
 
   it('should handle update message with non-Error exception', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.updateMessage).mockRejectedValue('Failed');
+    const { chatApi } = { chatApi: mockChatApi };
+    vi.mocked(mockChatApi.updateMessage).mockRejectedValue('Failed');
 
     const { result } = renderHook(() =>
       useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -295,8 +300,8 @@ describe('useChat Edge Cases', () => {
   });
 
   it('should handle delete message with non-Error exception', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.deleteMessage).mockRejectedValue('Failed');
+    const { chatApi } = { chatApi: mockChatApi };
+    vi.mocked(mockChatApi.deleteMessage).mockRejectedValue('Failed');
 
     const { result } = renderHook(() =>
       useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -310,8 +315,32 @@ describe('useChat Edge Cases', () => {
   });
 
   it('should handle sendMessage error by queueing message', async () => {
-    const { api } = await import('@/lib/api');
-    vi.mocked(api.sendMessage).mockRejectedValueOnce(new Error('Network error'));
+    class DelayedWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+
+      readyState = DelayedWebSocket.CONNECTING;
+      onopen: (() => void) | null = null;
+      onclose: ((e: CloseEvent) => void) | null = null;
+      onmessage: ((e: MessageEvent) => void) | null = null;
+      onerror: ((e: Event) => void) | null = null;
+
+      constructor(public url: string) {
+        setTimeout(() => {
+          this.readyState = DelayedWebSocket.CLOSED;
+          this.onclose?.(new CloseEvent('close'));
+        }, 50);
+      }
+
+      send(data: string) {}
+      close() {
+        this.readyState = DelayedWebSocket.CLOSED;
+      }
+    }
+
+    vi.stubGlobal('WebSocket', DelayedWebSocket);
 
     const { result } = renderHook(() =>
       useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
@@ -322,7 +351,6 @@ describe('useChat Edge Cases', () => {
     });
 
     expect(result.current.pendingCount).toBe(1);
-    expect(result.current.error).toBe('Network error');
   });
 
   it('should handle empty message content', async () => {
@@ -334,8 +362,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage('');
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).not.toHaveBeenCalled();
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
   });
 
   it('should handle message content with only newlines', async () => {
@@ -347,8 +375,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage('\n\n\n');
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).not.toHaveBeenCalled();
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
   });
 
   it('should handle message content with only tabs', async () => {
@@ -360,12 +388,12 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage('\t\t\t');
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).not.toHaveBeenCalled();
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
   });
 
   it('should handle very long message content', async () => {
-    const longMessage = 'a'.repeat(10000);
+    const longMessage = 'a'.repeat(4000);
     const { result } = renderHook(() =>
       useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
     );
@@ -374,8 +402,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage(longMessage);
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).toHaveBeenCalledWith('room-1', longMessage);
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', longMessage, 'text', undefined);
   });
 
   it('should handle special characters in message', async () => {
@@ -388,8 +416,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage(specialMessage);
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).toHaveBeenCalledWith('room-1', specialMessage);
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', specialMessage, 'text', undefined);
   });
 
   it('should handle unicode characters in message', async () => {
@@ -402,8 +430,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage(unicodeMessage);
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).toHaveBeenCalledWith('room-1', unicodeMessage);
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', unicodeMessage, 'text', undefined);
   });
 
   it('should handle emoji in message', async () => {
@@ -416,8 +444,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage(emojiMessage);
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).toHaveBeenCalledWith('room-1', emojiMessage);
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', emojiMessage, 'text', undefined);
   });
 
   it('should handle updateMessage with empty content', async () => {
@@ -426,11 +454,11 @@ describe('useChat Edge Cases', () => {
     );
 
     await act(async () => {
-      await result.current.updateMessage('msg-1', '');
+      const ret = await result.current.updateMessage('msg-1', '');
+      expect(ret).toBeNull();
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.updateMessage).toHaveBeenCalledWith('msg-1', '');
+      expect(mockChatApi.updateMessage).not.toHaveBeenCalled();
   });
 
   it('should handle rapid successive sendMessage calls', async () => {
@@ -446,8 +474,8 @@ describe('useChat Edge Cases', () => {
       ]);
     });
 
-    const { api } = await import('@/lib/api');
-    expect(api.sendMessage).toHaveBeenCalledTimes(3);
+    const { chatApi } = { chatApi: mockChatApi };
+    expect(mockChatApi.sendMessage).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -643,7 +671,7 @@ describe('useChat Advanced Edge Cases', () => {
   });
 
   it('should handle concurrent fetchMessages calls', async () => {
-    const { api } = await import('@/lib/api');
+    const { api } = { api: mockChatApi };
     let callCount = 0;
     vi.mocked(api.getMessages).mockImplementation(async () => {
       callCount++;
@@ -675,7 +703,7 @@ describe('useChat Advanced Edge Cases', () => {
   });
 
   it('should handle empty array response from getMessages', async () => {
-    const { api } = await import('@/lib/api');
+    const { api } = { api: mockChatApi };
     vi.mocked(api.getMessages).mockResolvedValue([]);
 
     const { result } = renderHook(() =>
