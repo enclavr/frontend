@@ -168,6 +168,10 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
       startHeartbeat();
       flushMessageQueue();
       sendReadReceipt(lastMessageIdRef.current);
+      
+      if (reconnectAttemptsRef.current > 0) {
+        wsRef.current?.send(JSON.stringify({ type: 'client-reconnect', room_id: roomId }));
+      }
     };
 
     ws.onmessage = (event) => {
@@ -365,6 +369,12 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             }
             break;
           }
+          case 'reconnect-ack': {
+            setConnectionState('connected');
+            reconnectAttemptsRef.current = 0;
+            console.log('Reconnection acknowledged by server');
+            break;
+          }
         }
       } catch (err) {
         console.error('Failed to parse WebSocket message:', err);
@@ -392,6 +402,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
       } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
         setError('Connection failed after multiple attempts. Please refresh the page.');
       }
+      reconnectAttemptsRef.current = 0;
     };
 
     wsRef.current = ws;

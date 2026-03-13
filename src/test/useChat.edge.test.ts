@@ -340,6 +340,7 @@ describe('useChat Edge Cases', () => {
       }
     }
 
+    const originalWebSocket = globalThis.WebSocket;
     vi.stubGlobal('WebSocket', DelayedWebSocket);
 
     const { result } = renderHook(() =>
@@ -351,6 +352,8 @@ describe('useChat Edge Cases', () => {
     });
 
     expect(result.current.pendingCount).toBe(1);
+    
+    vi.stubGlobal('WebSocket', originalWebSocket);
   });
 
   it('should handle empty message content', async () => {
