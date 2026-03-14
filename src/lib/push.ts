@@ -30,6 +30,11 @@ class PushService {
     this.token = token;
   }
 
+  resetForTesting() {
+    this.token = null;
+    this.registration = null;
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

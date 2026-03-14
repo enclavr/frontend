@@ -6,6 +6,7 @@ describe('PushService', () => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
+    pushService.resetForTesting();
   });
 
   describe('setToken', () => {

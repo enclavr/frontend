@@ -7,6 +7,7 @@ describe('Push Service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    pushService.resetForTesting();
     
     originalWindow = global.window;
     originalNavigator = global.navigator;
