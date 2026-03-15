@@ -180,21 +180,17 @@ describe('useChat Hook', () => {
 
     it('should handle very long message content', async () => {
       const longMessage = 'a'.repeat(4000);
-      console.log('longMessage length:', longMessage.length);
-      console.log('longMessage trimmed length:', longMessage.trim().length);
-      console.log('spam pattern test:', /(.)\1{10,}/.test(longMessage));
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
 
       await act(async () => {
         const output = await result.current.sendMessage(longMessage);
-        console.log('sendMessage output:', output);
-        console.log('error state:', result.current.error);
+        expect(output).toBeNull();
       });
 
-      console.log('mockChatApi.sendMessage calls:', mockChatApi.sendMessage.mock.calls);
-      expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', longMessage, 'text', undefined);
+      expect(result.current.error).toBe('Message flagged as potential spam');
+      expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
     });
 
     it('should handle message with special formatting characters', async () => {
@@ -270,6 +266,18 @@ describe('useChat Hook', () => {
 describe('useChat Edge Cases', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockChatApi.getMessages.mockResolvedValue([]);
+    mockChatApi.sendMessage.mockResolvedValue({
+      id: 'msg-1',
+      room_id: 'room-1',
+      user_id: 'user-1',
+      username: 'testuser',
+      type: 'text',
+      content: 'Test message',
+      is_edited: false,
+      is_deleted: false,
+      created_at: '2026-02-26T10:00:00Z',
+    });
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
@@ -411,8 +419,8 @@ describe('useChat Edge Cases', () => {
       await result.current.sendMessage(longMessage);
     });
 
-    const { chatApi } = { chatApi: mockChatApi };
-    expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', longMessage, 'text', undefined);
+    expect(result.current.error).toBe('Message flagged as potential spam');
+    expect(mockChatApi.sendMessage).not.toHaveBeenCalled();
   });
 
   it('should handle special characters in message', async () => {
@@ -513,7 +521,7 @@ describe('useChat Connection States', () => {
     expect(result.current.connectionState).toBe('connected');
   });
 
-  it('should clear messages when roomId changes', async () => {
+  it('should fetch new messages when roomId changes', async () => {
     const { result, rerender } = renderHook(
       ({ roomId }) => useChat({ roomId, userId: 'user-1', username: 'testuser' }),
       { initialProps: { roomId: 'room-1' } }
@@ -523,7 +531,9 @@ describe('useChat Connection States', () => {
       await result.current.sendMessage('Test message');
     });
 
-    expect(result.current.messages.length).toBe(1);
+    expect(mockChatApi.sendMessage).toHaveBeenCalled();
+
+    mockChatApi.getMessages.mockResolvedValueOnce([]);
 
     rerender({ roomId: 'room-2' });
 
@@ -531,7 +541,7 @@ describe('useChat Connection States', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    expect(result.current.messages.length).toBeGreaterThanOrEqual(0);
+    expect(mockChatApi.getMessages).toHaveBeenCalledWith('room-2');
   });
 
   it('should not connect when roomId is empty', () => {

@@ -12,6 +12,10 @@ export interface UseChatOptions {
   username: string;
   onNewMessage?: (message: Message) => void;
   onMessageRead?: (messageId: string, userId: string) => void;
+  onConnectionStateChange?: (state: ConnectionState) => void;
+  onError?: (error: string) => void;
+  enableReconnection?: boolean;
+  reconnectInterval?: number;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -149,7 +153,17 @@ function validateMessageStructure(data: unknown): { valid: boolean; error?: stri
   return { valid: true };
 }
 
-export function useChat({ roomId, userId, username, onNewMessage, onMessageRead }: UseChatOptions) {
+export function useChat({ 
+  roomId, 
+  userId, 
+  username, 
+  onNewMessage, 
+  onMessageRead,
+  onConnectionStateChange,
+  onError,
+  enableReconnection = true,
+  reconnectInterval = 5000,
+}: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +173,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
   const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [connectionLatency, setConnectionLatency] = useState<number | null>(null);
+  const [reconnectCount, setReconnectCount] = useState(0);
   
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,15 +193,18 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     consecutiveFailures: number;
     lastAttemptTime: number;
     exponentialBackoff: number;
+    maxBackoffReached: boolean;
   }>({
     isReconnecting: false,
     lastDisconnectTime: 0,
     consecutiveFailures: 0,
     lastAttemptTime: 0,
     exponentialBackoff: INITIAL_RECONNECT_DELAY,
+    maxBackoffReached: false,
   });
   const connectionStartTimeRef = useRef<number>(0);
   const messageSequenceRef = useRef<number>(0);
+  const manualDisconnectRef = useRef(false);
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
@@ -253,7 +271,9 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
-      setConnectionState('connected');
+      const newState: ConnectionState = 'connected';
+      setConnectionState(newState);
+      onConnectionStateChange?.(newState);
       reconnectAttemptsRef.current = 0;
       connectionStartTimeRef.current = Date.now();
       reconnectStateRef.current = {
@@ -262,6 +282,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
         consecutiveFailures: 0,
         lastAttemptTime: 0,
         exponentialBackoff: INITIAL_RECONNECT_DELAY,
+        maxBackoffReached: false,
       };
       startHeartbeat();
       flushMessageQueue();
@@ -539,8 +560,11 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             break;
           }
           case 'reconnect-ack': {
-            setConnectionState('connected');
+            const newState: ConnectionState = 'connected';
+            setConnectionState(newState);
+            onConnectionStateChange?.(newState);
             reconnectAttemptsRef.current = 0;
+            setReconnectCount(0);
             console.log('Reconnection acknowledged by server');
             break;
           }
@@ -552,15 +576,24 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
 
     ws.onerror = (error) => {
       console.error('Chat WebSocket error:', error);
-      setError('WebSocket connection error');
+      const errorMsg = 'WebSocket connection error';
+      setError(errorMsg);
+      onError?.(errorMsg);
       reconnectStateRef.current.consecutiveFailures += 1;
     };
 
     ws.onclose = (event) => {
       const now = Date.now();
-      setConnectionState('disconnected');
+      const newState: ConnectionState = 'disconnected';
+      setConnectionState(newState);
+      onConnectionStateChange?.(newState);
       stopHeartbeat();
       reconnectStateRef.current.lastDisconnectTime = now;
+      
+      if (manualDisconnectRef.current) {
+        manualDisconnectRef.current = false;
+        return;
+      }
       
       if (!isUnmountedRef.current && !event.wasClean) {
         const currentBackoff = Math.min(
@@ -577,15 +610,25 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
         const shouldReconnect = reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS && 
                                timeSinceLastReconnect > MIN_RECONNECT_INTERVAL;
         
-        if (shouldReconnect) {
-          setConnectionState('reconnecting');
+        if (shouldReconnect && enableReconnection) {
+          const reconnectingState: ConnectionState = 'reconnecting';
+          setConnectionState(reconnectingState);
+          onConnectionStateChange?.(reconnectingState);
           reconnectAttemptsRef.current++;
+          setReconnectCount(reconnectAttemptsRef.current);
           reconnectStateRef.current.lastAttemptTime = now;
           reconnectStateRef.current.exponentialBackoff = currentBackoff;
           reconnectStateRef.current.consecutiveFailures += 1;
+          
+          if (reconnectAttemptsRef.current >= 5) {
+            reconnectStateRef.current.maxBackoffReached = true;
+          }
+          
           reconnectTimeoutRef.current = setTimeout(connect, delay);
         } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-          setError('Connection failed after multiple attempts. Please refresh the page.');
+          const errorMsg = 'Connection failed after multiple attempts. Please refresh the page.';
+          setError(errorMsg);
+          onError?.(errorMsg);
         }
       } else {
         reconnectAttemptsRef.current = 0;
@@ -594,9 +637,10 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     };
 
     wsRef.current = ws;
-  }, [roomId, userId, onNewMessage, onMessageRead, startHeartbeat, stopHeartbeat, fetchBlockedUsers]);
+  }, [roomId, userId, username, onNewMessage, onMessageRead, onConnectionStateChange, onError, startHeartbeat, stopHeartbeat, fetchBlockedUsers]);
 
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -606,8 +650,38 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
       wsRef.current.close(1000, 'Client disconnect');
       wsRef.current = null;
     }
-    setConnectionState('disconnected');
-  }, [stopHeartbeat]);
+    const newState: ConnectionState = 'disconnected';
+    setConnectionState(newState);
+    onConnectionStateChange?.(newState);
+  }, [stopHeartbeat, onConnectionStateChange]);
+
+  const manualReconnect = useCallback(() => {
+    if (connectionState === 'connected' || connectionState === 'connecting') {
+      return;
+    }
+    
+    reconnectAttemptsRef.current = 0;
+    reconnectStateRef.current = {
+      isReconnecting: false,
+      lastDisconnectTime: 0,
+      consecutiveFailures: 0,
+      lastAttemptTime: 0,
+      exponentialBackoff: INITIAL_RECONNECT_DELAY,
+      maxBackoffReached: false,
+    };
+    
+    const reconnectingState: ConnectionState = 'reconnecting';
+    setConnectionState(reconnectingState);
+    onConnectionStateChange?.(reconnectingState);
+    setError(null);
+    
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Manual reconnect');
+      wsRef.current = null;
+    }
+    
+    setTimeout(() => connect(), 100);
+  }, [connectionState, connect, onConnectionStateChange]);
 
   const sendMessage = useCallback(async (content: string, parentId?: string) => {
     const validationError = validateMessageContent(content);
@@ -871,6 +945,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     pendingCount,
     lastReadMessageId,
     blockedUsers,
+    reconnectCount,
     sendMessage,
     updateMessage,
     deleteMessage,
@@ -881,6 +956,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     blockUser,
     unblockUser,
     fetchMessages,
-    reconnect: connect,
+    reconnect: manualReconnect,
+    disconnect,
   };
 }
