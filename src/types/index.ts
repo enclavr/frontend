@@ -70,6 +70,7 @@ export interface Message {
   thread_count?: number;
   read_by?: ReadReceipt[];
   reactions?: ReactionWithCount[];
+  delivered?: boolean;
 }
 
 export interface TypingUser {
@@ -369,6 +370,7 @@ export interface TypingData {
 export interface ReadReceipt {
   userId: string;
   readAt: string;
+  delivered?: boolean;
 }
 
 export interface ThreadReply {
@@ -384,6 +386,8 @@ export interface ThreadReply {
 export interface BlockedUser {
   blocked_userId: string;
   blockedAt: string;
+  reason?: string;
+  username?: string;
 }
 
 export interface VoiceUser {

@@ -80,10 +80,10 @@ export class ChatApi extends BaseApiClient {
     return this.request<{ userId: string; readAt: string }[]>(`/api/messages/read?message_id=${messageId}`);
   }
 
-  async blockUser(blockedUserId: string): Promise<{ status: string }> {
+  async blockUser(blockedUserId: string, reason?: string): Promise<{ status: string }> {
     return this.request<{ status: string }>('/api/users/block', {
       method: 'POST',
-      body: JSON.stringify({ blocked_user_id: blockedUserId }),
+      body: JSON.stringify({ blocked_user_id: blockedUserId, reason: reason || '' }),
     });
   }
 

@@ -21,6 +21,13 @@ const HEARTBEAT_INTERVAL = 30000;
 const MESSAGE_VALIDATION_MAX_LENGTH = 4000;
 const RECONNECT_JITTER_FACTOR = 0.3;
 const MAX_MESSAGE_SIZE = 512 * 1024;
+const CONNECTION_TIMEOUT = 10000;
+const MAX_QUEUED_MESSAGES = 50;
+const BACKOFF_BASE = 2;
+const MAX_BACKOFF_DELAY = 30000;
+const MIN_RECONNECT_INTERVAL = 500;
+const MESSAGE_QUEUE_KEY = 'enclavr_message_queue';
+const MAX_PERSISTED_MESSAGES = 100;
 
 interface WebSocketMessage {
   type: string;
@@ -61,6 +68,38 @@ function generateJitter(delay: number, factor: number): number {
   return Math.floor(delay + jitter);
 }
 
+function persistMessageQueue(roomId: string, messages: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = `${MESSAGE_QUEUE_KEY}_${roomId}`;
+    localStorage.setItem(key, JSON.stringify(messages.slice(0, MAX_PERSISTED_MESSAGES)));
+  } catch (err) {
+    console.error('Failed to persist message queue:', err);
+  }
+}
+
+function loadPersistedMessages(roomId: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const key = `${MESSAGE_QUEUE_KEY}_${roomId}`;
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch (err) {
+    console.error('Failed to load persisted messages:', err);
+    return [];
+  }
+}
+
+function clearPersistedMessages(roomId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = `${MESSAGE_QUEUE_KEY}_${roomId}`;
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error('Failed to clear persisted messages:', err);
+  }
+}
+
 function validateMessageContent(content: string): string | null {
   if (!content || !content.trim()) {
     return 'Message cannot be empty';
@@ -82,6 +121,32 @@ function sanitizeMessageContent(content: string): string {
     const code = c.charCodeAt(0);
     return code >= 32 && code !== 127;
   }).join('').replace(/[\u202E\u202D]/g, '').slice(0, MESSAGE_VALIDATION_MAX_LENGTH);
+}
+
+function detectSpamPattern(content: string): boolean {
+  const spamPatterns = [
+    /(.)\1{10,}/,
+    /http[s]?:\/\/\S+\s+http[s]?:\/\/\S+/i,
+    /(.{1,3})\1{5,}/i,
+  ];
+  return spamPatterns.some(pattern => pattern.test(content));
+}
+
+function validateMessageStructure(data: unknown): { valid: boolean; error?: string } {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: 'Invalid message structure' };
+  }
+  
+  const msg = data as Record<string, unknown>;
+  
+  if (msg.type === 'chat-message' || msg.type === 'message-updated') {
+    const payload = msg.payload;
+    if (!payload || typeof payload !== 'object') {
+      return { valid: false, error: 'Invalid message payload' };
+    }
+  }
+  
+  return { valid: true };
 }
 
 export function useChat({ roomId, userId, username, onNewMessage, onMessageRead }: UseChatOptions) {
@@ -106,6 +171,22 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
   const pendingMessagesRef = useRef<Map<string, Message>>(new Map());
   const lastMessageIdRef = useRef<string | null>(null);
   const lastHeartbeatRef = useRef<number>(0);
+  const blockedUsersRef = useRef<BlockedUser[]>([]);
+  const reconnectStateRef = useRef<{
+    isReconnecting: boolean;
+    lastDisconnectTime: number;
+    consecutiveFailures: number;
+    lastAttemptTime: number;
+    exponentialBackoff: number;
+  }>({
+    isReconnecting: false,
+    lastDisconnectTime: 0,
+    consecutiveFailures: 0,
+    lastAttemptTime: 0,
+    exponentialBackoff: INITIAL_RECONNECT_DELAY,
+  });
+  const connectionStartTimeRef = useRef<number>(0);
+  const messageSequenceRef = useRef<number>(0);
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
@@ -128,6 +209,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     try {
       const blocked = await chatApi.getBlockedUsers();
       setBlockedUsers(blocked);
+      blockedUsersRef.current = blocked;
     } catch (err) {
       console.error('Failed to fetch blocked users:', err);
     }
@@ -158,23 +240,51 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     if (isUnmountedRef.current || !roomId) return;
     if (typeof window === 'undefined') return;
 
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/chatApi/ws?room_id=${roomId}`;
     const ws = new WebSocket(wsUrl);
+    const currentReconnectState = reconnectStateRef.current;
+    const isReconnectAttempt = currentReconnectState.lastDisconnectTime > 0;
+
+    ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       setConnectionState('connected');
       reconnectAttemptsRef.current = 0;
+      connectionStartTimeRef.current = Date.now();
+      reconnectStateRef.current = {
+        isReconnecting: false,
+        lastDisconnectTime: 0,
+        consecutiveFailures: 0,
+        lastAttemptTime: 0,
+        exponentialBackoff: INITIAL_RECONNECT_DELAY,
+      };
       startHeartbeat();
       flushMessageQueue();
       sendReadReceipt(lastMessageIdRef.current);
       
-      if (reconnectAttemptsRef.current > 0) {
+      if (isReconnectAttempt) {
         wsRef.current?.send(JSON.stringify({ type: 'client-reconnect', room_id: roomId }));
+        const persisted = loadPersistedMessages(roomId);
+        if (persisted.length > 0) {
+          messageQueueRef.current = persisted;
+          setPendingCount(persisted.length);
+        }
       }
     };
 
     ws.onmessage = (event) => {
+      messageSequenceRef.current += 1;
+      const sequenceNum = messageSequenceRef.current;
+      
+      if (event.data instanceof ArrayBuffer) {
+        return;
+      }
+      
       if (event.data.length > MAX_MESSAGE_SIZE) {
         console.warn('WebSocket message exceeds maximum size, dropping');
         return;
@@ -187,6 +297,8 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
           console.warn('Invalid WebSocket message format, dropping');
           return;
         }
+        
+        const currentBlockedUsers = blockedUsersRef.current;
         
         switch (data.type) {
           case 'chat-message': {
@@ -206,7 +318,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
               thread_count: payload.thread_count || 0,
             };
             
-            if (blockedUsers.some(b => b.blocked_userId === newMessage.user_id)) {
+            if (currentBlockedUsers.some(b => b.blocked_userId === newMessage.user_id)) {
               return;
             }
             
@@ -221,13 +333,18 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
           }
           case 'message-updated': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === payload.id
-                  ? { ...msg, ...payload, is_edited: true }
-                  : msg
-              )
-            );
+            const messageId = payload.id || payload.message_id;
+            const content = payload.content;
+            
+            if (messageId && content !== undefined) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === messageId
+                    ? { ...msg, content, is_edited: true, updated_at: payload.updated_at }
+                    : msg
+                )
+              );
+            }
             break;
           }
           case 'message-deleted': {
@@ -242,7 +359,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             break;
           }
           case 'user-typing':
-            if (data.user_id && data.user_id !== userId && !blockedUsers.some(b => b.blocked_userId === data.user_id)) {
+            if (data.user_id && data.user_id !== userId && !currentBlockedUsers.some(b => b.blocked_userId === data.user_id)) {
               handleTyping({ user_id: data.user_id, username: data.username });
             }
             break;
@@ -265,36 +382,62 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
           }
           case 'message-read': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            const messageId = payload.message_id || payload.id;
+            const readUserId = payload.user_id || payload.userId;
+            const readAt = payload.read_at || payload.readAt || new Date().toISOString();
+            
+            if (readUserId === userId) {
+              setLastReadMessageId(messageId);
+            }
+            
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === payload.message_id
+                msg.id === messageId
                   ? {
                       ...msg,
-                      read_by: [...(msg.read_by || []), { userId: payload.userId, readAt: payload.readAt }]
+                      read_by: [...(msg.read_by || []), { userId: readUserId, readAt, delivered: true }]
                     }
                   : msg
               )
             );
-            onMessageRead?.(payload.messageId, payload.userId);
+            onMessageRead?.(messageId, readUserId);
             break;
           }
-          case 'thread-reply': {
+          case 'message-delivered': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            const messageId = payload.message_id || payload.id;
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === payload.parent_id
-                  ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
+                msg.id === messageId
+                  ? { ...msg, delivered: true }
                   : msg
               )
             );
             break;
           }
-          case 'thread-created': {
+          case 'thread-reply': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
-            if (payload?.parent_id) {
+            const parentId = payload.parent_id || payload.parentId;
+            
+            if (parentId) {
               setMessages((prev) =>
                 prev.map((msg) =>
-                  msg.id === payload.parent_id
+                  msg.id === parentId
+                    ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
+                    : msg
+                )
+              );
+            }
+            break;
+          }
+          case 'thread-created': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            const parentId = payload.parent_id || payload.parentId;
+            
+            if (parentId) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === parentId
                     ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
                     : msg
                 )
@@ -304,10 +447,12 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
           }
           case 'thread-message': {
             const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
-            if (payload?.parent_id) {
+            const parentId = payload.parent_id || payload.parentId;
+            
+            if (parentId) {
               setMessages((prev) =>
                 prev.map((msg) =>
-                  msg.id === payload.parent_id
+                  msg.id === parentId
                     ? { ...msg, thread_count: (msg.thread_count || 0) + 1 }
                     : msg
                 )
@@ -316,20 +461,44 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
             break;
           }
           case 'thread-message-updated': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
             break;
           }
           case 'thread-message-deleted': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
             break;
           }
-          case 'user-blocked':
-          case 'user-unblocked':
-            fetchBlockedUsers();
+          case 'user-blocked': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            const blockedUserId = payload.blocked_user_id || payload.targetUserId || payload.blockedUserId;
+            
+            if (blockedUserId) {
+              setBlockedUsers((prev) => [...prev, { blocked_userId: blockedUserId, blockedAt: new Date().toISOString() }]);
+              blockedUsersRef.current = [...blockedUsersRef.current, { blocked_userId: blockedUserId, blockedAt: new Date().toISOString() }];
+              setMessages((prev) => prev.filter((msg) => msg.user_id !== blockedUserId));
+            } else {
+              fetchBlockedUsers();
+            }
             break;
+          }
+          case 'user-unblocked': {
+            const payload = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
+            const unblockedUserId = payload.unblocked_user_id || payload.targetUserId || payload.unblockedUserId;
+            
+            if (unblockedUserId) {
+              setBlockedUsers((prev) => prev.filter((u) => u.blocked_userId !== unblockedUserId));
+              blockedUsersRef.current = blockedUsersRef.current.filter((u) => u.blocked_userId !== unblockedUserId);
+            } else {
+              fetchBlockedUsers();
+            }
+            break;
+          }
           case 'pong':
           case 'heartbeat-ack': {
             const latency = Date.now() - lastHeartbeatRef.current;
             if (latency > 0 && latency < 60000) {
               setConnectionLatency(latency);
+              reconnectStateRef.current.consecutiveFailures = 0;
             }
             break;
           }
@@ -384,29 +553,48 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     ws.onerror = (error) => {
       console.error('Chat WebSocket error:', error);
       setError('WebSocket connection error');
+      reconnectStateRef.current.consecutiveFailures += 1;
     };
 
     ws.onclose = (event) => {
+      const now = Date.now();
       setConnectionState('disconnected');
       stopHeartbeat();
+      reconnectStateRef.current.lastDisconnectTime = now;
       
-      if (!isUnmountedRef.current && !event.wasClean && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        const baseDelay = Math.min(
-          INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
-          MAX_RECONNECT_DELAY
+      if (!isUnmountedRef.current && !event.wasClean) {
+        const currentBackoff = Math.min(
+          reconnectStateRef.current.exponentialBackoff * BACKOFF_BASE,
+          MAX_BACKOFF_DELAY
         );
-        const delay = generateJitter(baseDelay, RECONNECT_JITTER_FACTOR);
-        setConnectionState('reconnecting');
-        reconnectAttemptsRef.current++;
-        reconnectTimeoutRef.current = setTimeout(connect, delay);
-      } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        setError('Connection failed after multiple attempts. Please refresh the page.');
+        
+        const delay = Math.max(
+          generateJitter(currentBackoff, RECONNECT_JITTER_FACTOR),
+          MIN_RECONNECT_INTERVAL
+        );
+        
+        const timeSinceLastReconnect = now - reconnectStateRef.current.lastAttemptTime;
+        const shouldReconnect = reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS && 
+                               timeSinceLastReconnect > MIN_RECONNECT_INTERVAL;
+        
+        if (shouldReconnect) {
+          setConnectionState('reconnecting');
+          reconnectAttemptsRef.current++;
+          reconnectStateRef.current.lastAttemptTime = now;
+          reconnectStateRef.current.exponentialBackoff = currentBackoff;
+          reconnectStateRef.current.consecutiveFailures += 1;
+          reconnectTimeoutRef.current = setTimeout(connect, delay);
+        } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          setError('Connection failed after multiple attempts. Please refresh the page.');
+        }
+      } else {
+        reconnectAttemptsRef.current = 0;
+        reconnectStateRef.current.exponentialBackoff = INITIAL_RECONNECT_DELAY;
       }
-      reconnectAttemptsRef.current = 0;
     };
 
     wsRef.current = ws;
-  }, [roomId, userId, onNewMessage, onMessageRead, startHeartbeat, stopHeartbeat, blockedUsers, fetchBlockedUsers]);
+  }, [roomId, userId, onNewMessage, onMessageRead, startHeartbeat, stopHeartbeat, fetchBlockedUsers]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -428,34 +616,47 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
       return null;
     }
     
+    if (detectSpamPattern(content)) {
+      setError('Message flagged as potential spam');
+      return null;
+    }
+    
+    if (messageQueueRef.current.length >= MAX_QUEUED_MESSAGES) {
+      setError('Message queue full. Please try again later.');
+      return null;
+    }
+    
     if (!roomId) return null;
     
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const sanitizedContent = sanitizeMessageContent(content.trim());
     const optimisticMessage: Message = {
       id: tempId,
       room_id: roomId,
       user_id: userId,
       username,
       type: 'text',
-      content: content.trim(),
+      content: sanitizedContent,
       is_edited: false,
       is_deleted: false,
       created_at: new Date().toISOString(),
       parent_id: parentId || null,
+      delivered: false,
     };
     
     setMessages((prev) => [...prev, optimisticMessage]);
     pendingMessagesRef.current.set(tempId, optimisticMessage);
     
     if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      messageQueueRef.current.push(JSON.stringify({ content: content.trim(), parentId }));
+      messageQueueRef.current.push(JSON.stringify({ content: sanitizedContent, parentId }));
       setPendingCount(messageQueueRef.current.length);
+      persistMessageQueue(roomId, messageQueueRef.current);
       return optimisticMessage;
     }
     
     try {
-      const message = await chatApi.sendMessage(roomId, content.trim(), 'text', parentId);
-      setMessages((prev) => prev.map((msg) => msg.id === tempId ? message : msg));
+      const message = await chatApi.sendMessage(roomId, sanitizedContent, 'text', parentId);
+      setMessages((prev) => prev.map((msg) => msg.id === tempId ? { ...message, delivered: true } : msg));
       pendingMessagesRef.current.delete(tempId);
       onNewMessage?.(message);
       stopTyping();
@@ -463,8 +664,9 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     } catch (err) {
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       pendingMessagesRef.current.delete(tempId);
-      messageQueueRef.current.push(JSON.stringify({ content: content.trim(), parentId }));
+      messageQueueRef.current.push(JSON.stringify({ content: sanitizedContent, parentId }));
       setPendingCount(messageQueueRef.current.length);
+      persistMessageQueue(roomId, messageQueueRef.current);
       setError(err instanceof Error ? err.message : 'Failed to send message');
       return null;
     }
@@ -478,16 +680,21 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     const queue = [...messageQueueRef.current];
     messageQueueRef.current = [];
     setPendingCount(0);
+    clearPersistedMessages(roomId);
     
     for (const item of queue) {
       try {
         const { content, parentId } = JSON.parse(item);
-        const message = await chatApi.sendMessage(roomId, content, 'text', parentId);
-        setMessages((prev) => [...prev, message]);
+        const sanitizedContent = sanitizeMessageContent(content);
+        if (!sanitizedContent) continue;
+        
+        const message = await chatApi.sendMessage(roomId, sanitizedContent, 'text', parentId);
+        setMessages((prev) => [...prev, { ...message, delivered: true }]);
         onNewMessage?.(message);
       } catch (err) {
         messageQueueRef.current.push(item);
         setPendingCount(messageQueueRef.current.length);
+        persistMessageQueue(roomId, messageQueueRef.current);
         setError(err instanceof Error ? err.message : 'Failed to send queued message');
         break;
       }
@@ -611,10 +818,11 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     return sendMessage(content, parentId);
   }, [sendMessage]);
 
-  const blockUser = useCallback(async (blockedUserId: string) => {
+  const blockUser = useCallback(async (blockedUserId: string, reason?: string) => {
     try {
-      await chatApi.blockUser(blockedUserId);
-      setBlockedUsers((prev) => [...prev, { blocked_userId: blockedUserId, blockedAt: new Date().toISOString() }]);
+      await chatApi.blockUser(blockedUserId, reason);
+      setBlockedUsers((prev) => [...prev, { blocked_userId: blockedUserId, blockedAt: new Date().toISOString(), reason }]);
+      blockedUsersRef.current = [...blockedUsersRef.current, { blocked_userId: blockedUserId, blockedAt: new Date().toISOString(), reason }];
       setMessages((prev) => prev.filter((msg) => msg.user_id !== blockedUserId));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to block user');
@@ -625,6 +833,7 @@ export function useChat({ roomId, userId, username, onNewMessage, onMessageRead 
     try {
       await chatApi.unblockUser(blockedUserId);
       setBlockedUsers((prev) => prev.filter((u) => u.blocked_userId !== blockedUserId));
+      blockedUsersRef.current = blockedUsersRef.current.filter((u) => u.blocked_userId !== blockedUserId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to unblock user');
     }

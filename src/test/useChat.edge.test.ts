@@ -180,14 +180,20 @@ describe('useChat Hook', () => {
 
     it('should handle very long message content', async () => {
       const longMessage = 'a'.repeat(4000);
+      console.log('longMessage length:', longMessage.length);
+      console.log('longMessage trimmed length:', longMessage.trim().length);
+      console.log('spam pattern test:', /(.)\1{10,}/.test(longMessage));
       const { result } = renderHook(() =>
         useChat({ roomId: 'room-1', userId: 'user-1', username: 'testuser' })
       );
 
       await act(async () => {
-        await result.current.sendMessage(longMessage);
+        const output = await result.current.sendMessage(longMessage);
+        console.log('sendMessage output:', output);
+        console.log('error state:', result.current.error);
       });
 
+      console.log('mockChatApi.sendMessage calls:', mockChatApi.sendMessage.mock.calls);
       expect(mockChatApi.sendMessage).toHaveBeenCalledWith('room-1', longMessage, 'text', undefined);
     });
 
