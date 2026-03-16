@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -38,10 +39,11 @@ jobs:
         run: bun run typecheck
 
       - name: Run tests
-        run: NODE_OPTIONS="--max-old-space-size=16384" bun run test:run
+        run: NODE_OPTIONS="--max-old-space-size=8192" bun run test:run
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: test
 
     steps:
