@@ -9,11 +9,14 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
-    pool: 'forks',
+    pool: 'vmForks',
     maxWorkers: 1,
     isolate: false,
     testTimeout: 30000,
     hookTimeout: 30000,
+    sequence: {
+      shuffle: false,
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
